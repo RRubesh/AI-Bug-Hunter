@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: bug_hunter_db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: super-secure-db-password-987
+      POSTGRES_DB: aibughunter
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: bug_hunter_redis
+    restart: always
+    ports:
+      - "6379:6379"
+
+  backend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+    container_name: bug_hunter_backend
+    restart: always
+    environment:
+      - DATABASE_URL=postgresql://postgres:super-secure-db-password-987@db:5432/aibughunter
+      - OLLAMA_API_URL=http://host.docker.internal:11434
+      - DEFAULT_LLM_MODEL=qwen2.5-coder:1.5b
+      - SECRET_KEY=super-secret-key-change-in-production-1234567890
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/uploads:/app/backend/uploads
+      - ./backend/reports:/app/backend/reports
+    depends_on:
+      - db
+      - redis
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.frontend
+    container_name: bug_hunter_frontend
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:

@@ -1,0 +1,117 @@
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;700&family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Outfit", sans-serif;
+  --font-mono: "Fira Code", monospace;
+
+  /* Overwrite existing tailwind theme colors to build the deep space blue/cyan SOC theme */
+  --color-slate-950: #040712;
+  --color-slate-900: #0a0e1c;
+  --color-slate-800: #151a30;
+  --color-slate-700: #202747;
+  --color-slate-600: #2d3861;
+  --color-slate-500: #44538c;
+  --color-slate-400: #94a8e9; /* Light blue/gray text */
+  --color-slate-300: #bac7f4;
+  --color-slate-200: #cbd5e1;
+  --color-slate-100: #f8fafc;
+
+  /* Accent cyber neon colors */
+  --color-rose-500: #ff3366;  /* Critical: Cyber red */
+  --color-amber-500: #ffb700; /* High: Cyber amber */
+  --color-yellow-500: #eab308; /* Medium: Yellow */
+  --color-blue-500: #00f0ff;  /* Low/Primary: Cyber cyan */
+}
+
+@layer base {
+  :root {
+    --font-outfit: "Outfit", sans-serif;
+  }
+  
+  body {
+    font-family: var(--font-sans);
+    background-color: #040712;
+    color: #e2e8f0;
+    overflow-x: hidden;
+    position: relative;
+  }
+}
+
+/* Custom scrollbars - cyber cyan style */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #040712;
+}
+::-webkit-scrollbar-thumb {
+  background: #151a30;
+  border: 1px solid rgba(0, 240, 255, 0.25);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #00f0ff;
+  box-shadow: 0 0 10px #00f0ff;
+}
+
+/* Glassmorphism panel styled as cyber panel */
+.glass-panel {
+  background: rgba(10, 14, 28, 0.7);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(0, 240, 255, 0.08);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.glass-panel-hover {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.glass-panel-hover:hover {
+  border-color: rgba(0, 240, 255, 0.3);
+  box-shadow: 0 0 20px rgba(0, 240, 255, 0.08);
+}
+
+/* Accent glowing highlights */
+.glow-rose {
+  box-shadow: 0 0 15px rgba(255, 51, 102, 0.25);
+  border-color: rgba(255, 51, 102, 0.4);
+}
+.glow-orange {
+  box-shadow: 0 0 15px rgba(255, 183, 0, 0.25);
+  border-color: rgba(255, 183, 0, 0.4);
+}
+.glow-emerald {
+  box-shadow: 0 0 15px rgba(16, 185, 129, 0.25);
+  border-color: rgba(16, 185, 129, 0.4);
+}
+.glow-blue {
+  box-shadow: 0 0 15px rgba(0, 240, 255, 0.25);
+  border-color: rgba(0, 240, 255, 0.4);
+}
+
+/* Cyber grid background */
+.cyber-grid {
+  background-image: 
+    linear-gradient(rgba(0, 240, 255, 0.012) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 240, 255, 0.012) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Pulsing cyber dot */
+@keyframes pulse-glow {
+  0%, 100% {
+    opacity: 0.3;
+    box-shadow: 0 0 5px rgba(0, 240, 255, 0.2);
+  }
+  50% {
+    opacity: 0.8;
+    box-shadow: 0 0 15px rgba(0, 240, 255, 0.6);
+  }
+}
+
+.pulsing-dot {
+  animation: pulse-glow 2s infinite ease-in-out;
+}
+
+

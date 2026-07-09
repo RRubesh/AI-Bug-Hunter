@@ -1,0 +1,151 @@
+from pydantic import BaseModel, Field, ConfigDict
+from typing import Optional, List
+from datetime import datetime
+
+# --- User Schemas ---
+class UserBase(BaseModel):
+    username: str
+
+class UserCreate(UserBase):
+    password: str
+
+class UserLogin(UserBase):
+    password: str
+
+class UserResponse(UserBase):
+    id: int
+    role: str
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+    role: str
+    username: str
+
+class TokenData(BaseModel):
+    username: Optional[str] = None
+    role: Optional[str] = None
+
+# --- Project Schemas ---
+class ProjectBase(BaseModel):
+    name: str
+    description: Optional[str] = None
+
+class ProjectCreate(ProjectBase):
+    upload_type: str  # zip, folder, git, file
+
+class ProjectResponse(ProjectBase):
+    id: int
+    upload_type: str
+    language_detected: Optional[str]
+    owner_id: int
+    owner_username: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+# --- Scan Schemas ---
+class ScanResponse(BaseModel):
+    id: int
+    project_id: int
+    status: str
+    progress: int
+    trigger_type: str
+    total_vulnerabilities: int
+    critical_count: int
+    high_count: int
+    medium_count: int
+    low_count: int
+    created_at: datetime
+    finished_at: Optional[datetime]
+    project: Optional[ProjectResponse] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+# --- Vulnerability Schemas ---
+class VulnerabilityResponse(BaseModel):
+    id: int
+    scan_id: int
+    file_path: str
+    line_number: Optional[int]
+    code_snippet: Optional[str]
+    severity: str
+    category: str
+    message: str
+    tool_name: str
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+class VulnerabilityDetail(VulnerabilityResponse):
+    remediation: Optional[str]
+    ai_explanation: Optional[str]
+    ai_fix: Optional[str]
+
+    model_config = ConfigDict(from_attributes=True)
+
+# --- Chat Schemas ---
+class ChatMessageBase(BaseModel):
+    message: str
+
+class ChatMessageCreate(ChatMessageBase):
+    scan_id: int
+
+class ChatMessageResponse(ChatMessageBase):
+    id: int
+    scan_id: int
+    user_id: int
+    is_ai: bool
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+class ChatQuery(BaseModel):
+    vulnerability_id: Optional[int] = None
+    message: str
+
+# --- Stats & Settings ---
+class SeverityStats(BaseModel):
+    critical: int = 0
+    high: int = 0
+    medium: int = 0
+    low: int = 0
+    info: int = 0
+
+class ScanStats(BaseModel):
+    total_scans: int
+    total_vulnerabilities: int
+    severity_distribution: SeverityStats
+    scans_history: List[ScanResponse]
+
+class AppSettings(BaseModel):
+    ollama_url: str
+    default_model: str
+    available_models: List[str]
+    ai_provider: str
+    openai_api_key_configured: bool
+    gemini_api_key_configured: bool
+    groq_api_key_configured: bool
+    claude_api_key_configured: bool
+    grok_api_key_configured: bool
+
+class SettingsUpdate(BaseModel):
+    ollama_url: Optional[str] = None
+    default_model: Optional[str] = None
+    ai_provider: Optional[str] = None
+    openai_api_key: Optional[str] = None
+    gemini_api_key: Optional[str] = None
+    groq_api_key: Optional[str] = None
+    claude_api_key: Optional[str] = None
+    grok_api_key: Optional[str] = None
+
+class PasswordReset(BaseModel):
+    username: str
+    recovery_key: str
+    new_password: str
+
+

@@ -90,7 +90,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const values = [
       { key: "Critical", val: severityDistribution.critical, color: "#f43f5e" },
       { key: "High", val: severityDistribution.high, color: "#f97316" },
-      { key: "Medium", val: severityDistribution.medium, color: "#eab308" },
+      { key: "Medium", val: severityDistribution.medium, color: "#f59e0b" },
       { key: "Low", val: severityDistribution.low, color: "#3b82f6" },
     ];
     const filtered = values.filter((v) => v.val > 0);
@@ -120,6 +120,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
         </div>
       );
     }
+
+    const chartSum = segments.reduce((acc, curr) => acc + curr.val, 0);
 
     return (
       <div className="flex flex-col md:flex-row items-center justify-around gap-6 py-4">
@@ -161,7 +163,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <div key={i} className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full" style={{ backgroundColor: seg.color }}></div>
               <span className="text-xs font-semibold text-slate-300">{seg.key}:</span>
-              <span className="text-xs font-bold text-slate-400 font-mono">{seg.val} ({Math.round((seg.val / totalVulns) * 100)}%)</span>
+              <span className="text-xs font-bold text-slate-400 font-mono">{seg.val} ({Math.round((seg.val / chartSum) * 100)}%)</span>
             </div>
           ))}
         </div>

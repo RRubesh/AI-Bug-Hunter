@@ -32,6 +32,9 @@ backend/uploads/*
 !backend/uploads/.gitkeep
 backend/reports/*
 !backend/reports/.gitkeep
+backend/test_report_escaped.pdf
+test_report_escaped.pdf
+
 
 # IDEs and OS files
 .vscode/

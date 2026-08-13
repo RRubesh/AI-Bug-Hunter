@@ -107,6 +107,30 @@ export interface AppSettings {
   grok_api_key_configured: boolean;
 }
 
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
+
+const getApiUrl = (path: string): string => {
+  const cleanPath = path.startsWith("/") ? path : `/${path}`;
+  return API_BASE_URL ? `${API_BASE_URL}${cleanPath}` : cleanPath;
+};
+
+const safeJson = async (res: Response) => {
+  const text = await res.text();
+  let data: any = {};
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    if (!res.ok) {
+      throw new Error(`Server error (${res.status}). Verify backend URL is configured correctly.`);
+    }
+    throw new Error("Invalid response format received from server.");
+  }
+  if (!res.ok) {
+    throw new Error(data.detail || `HTTP ${res.status} error from backend`);
+  }
+  return data;
+};
+
 const getHeaders = (multipart = false) => {
   const token = localStorage.getItem("token");
   const headers: HeadersInit = {};
@@ -122,29 +146,21 @@ const getHeaders = (multipart = false) => {
 export const api = {
   // --- AUTHENTICATION ---
   async register(username: string, password: string): Promise<User> {
-    const res = await fetch("/api/auth/register", {
+    const res = await fetch(getApiUrl("/api/auth/register"), {
       method: "POST",
       headers: getHeaders(),
       body: JSON.stringify({ username, password }),
     });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.detail || "Registration failed");
-    }
-    return res.json();
+    return safeJson(res);
   },
 
   async forgotPassword(username: string, recoveryKey: string, newPassword: string): Promise<{ message: string }> {
-    const res = await fetch("/api/auth/forgot-password", {
+    const res = await fetch(getApiUrl("/api/auth/forgot-password"), {
       method: "POST",
       headers: getHeaders(),
       body: JSON.stringify({ username, recovery_key: recoveryKey, new_password: newPassword }),
     });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.detail || "Password reset failed");
-    }
-    return res.json();
+    return safeJson(res);
   },
 
   async login(username: string, password: string): Promise<{ access_token: string, role: string, username: string }> {
@@ -152,18 +168,14 @@ export const api = {
     formData.append("username", username);
     formData.append("password", password);
 
-    const res = await fetch("/api/auth/login", {
+    const res = await fetch(getApiUrl("/api/auth/login"), {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
       },
       body: formData.toString(),
     });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.detail || "Login failed");
-    }
-    const data = await res.json();
+    const data = await safeJson(res);
     localStorage.setItem("token", data.access_token);
     localStorage.setItem("role", data.role);
     localStorage.setItem("username", data.username);
@@ -177,153 +189,136 @@ export const api = {
   },
 
   async getMe(): Promise<User> {
-    const res = await fetch("/api/auth/me", {
+    const res = await fetch(getApiUrl("/api/auth/me"), {
       headers: getHeaders(),
     });
-    if (!res.ok) throw new Error("Unauthorized");
-    return res.json();
+    return safeJson(res);
   },
 
   // --- PROJECTS ---
   async getProjects(): Promise<Project[]> {
-    const res = await fetch("/api/projects", {
+    const res = await fetch(getApiUrl("/api/projects"), {
       headers: getHeaders(),
     });
-    if (!res.ok) throw new Error("Failed to fetch projects");
-    return res.json();
+    return safeJson(res);
   },
 
   async createProject(formData: FormData): Promise<Project> {
-    const res = await fetch("/api/projects", {
+    const res = await fetch(getApiUrl("/api/projects"), {
       method: "POST",
       headers: getHeaders(true),
       body: formData,
     });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.detail || "Failed to upload project");
-    }
-    return res.json();
+    return safeJson(res);
   },
 
   async deleteProject(id: number): Promise<void> {
-    const res = await fetch(`/api/projects/${id}`, {
+    const res = await fetch(getApiUrl(`/api/projects/${id}`), {
       method: "DELETE",
       headers: getHeaders(),
     });
-    if (!res.ok) throw new Error("Failed to delete project");
+    await safeJson(res);
   },
 
   // --- SCANS ---
   async triggerScan(projectId: number): Promise<Scan> {
-    const res = await fetch(`/api/scans/${projectId}`, {
+    const res = await fetch(getApiUrl(`/api/scans/${projectId}`), {
       method: "POST",
       headers: getHeaders(),
     });
-    if (!res.ok) throw new Error("Failed to trigger scan");
-    return res.json();
+    return safeJson(res);
   },
 
   async getScans(projectId: number): Promise<Scan[]> {
-    const res = await fetch(`/api/scans/project/${projectId}`, {
+    const res = await fetch(getApiUrl(`/api/scans/project/${projectId}`), {
       headers: getHeaders(),
     });
-    if (!res.ok) throw new Error("Failed to fetch scans");
-    return res.json();
+    return safeJson(res);
   },
 
   async getScan(scanId: number): Promise<Scan> {
-    const res = await fetch(`/api/scans/${scanId}`, {
+    const res = await fetch(getApiUrl(`/api/scans/${scanId}`), {
       headers: getHeaders(),
     });
-    if (!res.ok) throw new Error("Failed to fetch scan");
-    return res.json();
+    return safeJson(res);
   },
 
   async getVulnerabilities(scanId: number): Promise<Vulnerability[]> {
-    const res = await fetch(`/api/scans/${scanId}/vulnerabilities`, {
+    const res = await fetch(getApiUrl(`/api/scans/${scanId}/vulnerabilities`), {
       headers: getHeaders(),
     });
-    if (!res.ok) throw new Error("Failed to fetch vulnerabilities");
-    return res.json();
+    return safeJson(res);
   },
 
   async getVulnerability(vulnId: number): Promise<Vulnerability> {
-    const res = await fetch(`/api/vulnerabilities/${vulnId}`, {
+    const res = await fetch(getApiUrl(`/api/vulnerabilities/${vulnId}`), {
       headers: getHeaders(),
     });
-    if (!res.ok) throw new Error("Failed to fetch vulnerability details");
-    return res.json();
+    return safeJson(res);
   },
 
   async getFileContent(projectId: number, filePath: string): Promise<string> {
-    const res = await fetch(`/api/projects/${projectId}/file-content?path=${encodeURIComponent(filePath)}`, {
+    const res = await fetch(getApiUrl(`/api/projects/${projectId}/file-content?path=${encodeURIComponent(filePath)}`), {
       headers: getHeaders(),
     });
-    if (!res.ok) throw new Error("Failed to fetch file content");
-    const data = await res.json();
+    const data = await safeJson(res);
     return data.content;
   },
 
   // --- AI SECURITY ASSISTANT ---
   async enrichVulnerability(vulnId: number): Promise<Vulnerability> {
-    const res = await fetch(`/api/ai/enrich/${vulnId}`, {
+    const res = await fetch(getApiUrl(`/api/ai/enrich/${vulnId}`), {
       method: "POST",
       headers: getHeaders(),
     });
-    if (!res.ok) throw new Error("Failed to enrich vulnerability");
-    return res.json();
+    return safeJson(res);
   },
 
   async getChatHistory(scanId: number): Promise<ChatMessage[]> {
-    const res = await fetch(`/api/ai/chat/${scanId}`, {
+    const res = await fetch(getApiUrl(`/api/ai/chat/${scanId}`), {
       headers: getHeaders(),
     });
-    if (!res.ok) throw new Error("Failed to fetch chat history");
-    return res.json();
+    return safeJson(res);
   },
 
   async sendChatMessage(scanId: number, message: string, vulnerabilityId?: number): Promise<ChatMessage> {
-    const res = await fetch(`/api/ai/chat/${scanId}`, {
+    const res = await fetch(getApiUrl(`/api/ai/chat/${scanId}`), {
       method: "POST",
       headers: getHeaders(),
       body: JSON.stringify({ message, vulnerability_id: vulnerabilityId }),
     });
-    if (!res.ok) throw new Error("Failed to get response from AI Assistant");
-    return res.json();
+    return safeJson(res);
   },
 
   async updateVulnerabilityStatus(vulnId: number, status: string): Promise<Vulnerability> {
-    const res = await fetch(`/api/vulnerabilities/${vulnId}`, {
+    const res = await fetch(getApiUrl(`/api/vulnerabilities/${vulnId}`), {
       method: "PATCH",
       headers: getHeaders(),
       body: JSON.stringify({ status }),
     });
-    if (!res.ok) throw new Error("Failed to update vulnerability status");
-    return res.json();
+    return safeJson(res);
   },
 
   async cancelScan(scanId: number): Promise<Scan> {
-    const res = await fetch(`/api/scans/${scanId}/cancel`, {
+    const res = await fetch(getApiUrl(`/api/scans/${scanId}/cancel`), {
       method: "POST",
       headers: getHeaders(),
     });
-    if (!res.ok) throw new Error("Failed to cancel scan");
-    return res.json();
+    return safeJson(res);
   },
 
   async deleteScan(scanId: number): Promise<void> {
-    const res = await fetch(`/api/scans/${scanId}`, {
+    const res = await fetch(getApiUrl(`/api/scans/${scanId}`), {
       method: "DELETE",
       headers: getHeaders(),
     });
-    if (!res.ok) throw new Error("Failed to delete scan");
+    await safeJson(res);
   },
 
   getReportDownloadUrl(scanId: number, format: "pdf" | "html" | "json" | "csv" = "pdf"): string {
     const token = localStorage.getItem("token");
     const query = token ? `?token=${encodeURIComponent(token)}` : "";
-    return `/api/scans/${scanId}/report/${format}${query}`;
+    return getApiUrl(`/api/scans/${scanId}/report/${format}${query}`);
   },
 
   async downloadReportFile(scanId: number, format: "pdf" | "html" | "json" | "csv"): Promise<void> {
@@ -344,34 +339,27 @@ export const api = {
     window.URL.revokeObjectURL(blobUrl);
   },
 
-
   // --- DASHBOARD & SETTINGS ---
   async getDashboardSummary(): Promise<DashboardSummary> {
-    const res = await fetch("/api/dashboard/summary", {
+    const res = await fetch(getApiUrl("/api/dashboard/summary"), {
       headers: getHeaders(),
     });
-    if (!res.ok) throw new Error("Failed to fetch dashboard summary");
-    return res.json();
+    return safeJson(res);
   },
 
   async getDashboardStats(): Promise<ScanStats> {
-    const res = await fetch("/api/dashboard/stats", {
+    const res = await fetch(getApiUrl("/api/dashboard/stats"), {
       headers: getHeaders(),
     });
-    if (!res.ok) throw new Error("Failed to fetch dashboard statistics");
-    return res.json();
+    return safeJson(res);
   },
 
   async getSettings(): Promise<AppSettings> {
     try {
-      const res = await fetch("/api/settings", {
+      const res = await fetch(getApiUrl("/api/settings"), {
         headers: getHeaders(),
       });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || `FastAPI backend error (${res.status})`);
-      }
-      return await res.json();
+      return await safeJson(res);
     } catch (err: unknown) {
       if (err instanceof Error) throw err;
       throw new Error("Unable to connect to FastAPI backend server");
@@ -389,16 +377,12 @@ export const api = {
     grok_api_key?: string;
   }): Promise<AppSettings> {
     try {
-      const res = await fetch("/api/settings", {
+      const res = await fetch(getApiUrl("/api/settings"), {
         method: "POST",
         headers: getHeaders(),
         body: JSON.stringify(settings),
       });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || `Failed to update settings (${res.status})`);
-      }
-      return await res.json();
+      return await safeJson(res);
     } catch (err: unknown) {
       if (err instanceof Error) throw err;
       throw new Error("Unable to connect to FastAPI backend server");
@@ -407,42 +391,34 @@ export const api = {
 
   // --- ADMIN PANEL ---
   async getAdminUsers(): Promise<User[]> {
-    const res = await fetch("/api/admin/users", {
+    const res = await fetch(getApiUrl("/api/admin/users"), {
       headers: getHeaders(),
     });
-    if (!res.ok) throw new Error("Failed to fetch users");
-    return res.json();
+    return safeJson(res);
   },
 
   async updateAdminUserRole(userId: number, role: string): Promise<void> {
-    const res = await fetch(`/api/admin/users/${userId}/role?role=${role}`, {
+    const res = await fetch(getApiUrl(`/api/admin/users/${userId}/role?role=${role}`), {
       method: "POST",
       headers: getHeaders(),
     });
-    if (!res.ok) throw new Error("Failed to update user role");
+    await safeJson(res);
   },
 
   async createAdminUser(username: string, password: string, role: string): Promise<User> {
-    const res = await fetch(`/api/admin/users?role=${role}`, {
+    const res = await fetch(getApiUrl(`/api/admin/users?role=${role}`), {
       method: "POST",
       headers: getHeaders(),
       body: JSON.stringify({ username, password }),
     });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.detail || "Failed to create user");
-    }
-    return res.json();
+    return safeJson(res);
   },
 
   async deleteAdminUser(userId: number): Promise<void> {
-    const res = await fetch(`/api/admin/users/${userId}`, {
+    const res = await fetch(getApiUrl(`/api/admin/users/${userId}`), {
       method: "DELETE",
       headers: getHeaders(),
     });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.detail || "Failed to delete user");
-    }
+    await safeJson(res);
   }
 };

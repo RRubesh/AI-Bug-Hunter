@@ -85,7 +85,23 @@ def execute_scan_task(db_session_factory, scan_id: int, project_path_str: str):
         )
 
         project_path = Path(project_path_str) if project_path_str else Path(".")
-        
+        if not project_path.exists():
+            folder_name = Path(project_path_str).name if project_path_str else ""
+            candidate = settings.UPLOAD_DIR / folder_name if folder_name else None
+            if candidate and candidate.exists():
+                project_path = candidate
+                if project:
+                    project.file_path = str(project_path)
+                    safe_commit(db)
+            elif project and project.id:
+                candidate_by_id = settings.UPLOAD_DIR / str(project.id)
+                if candidate_by_id.exists():
+                    project_path = candidate_by_id
+                    project.file_path = str(project_path)
+                    safe_commit(db)
+            else:
+                raise FileNotFoundError(f"Project path does not exist: {project_path_str}")
+
         # 1. Detect language
         language = detect_language(project_path)
         if project:
@@ -98,10 +114,10 @@ def execute_scan_task(db_session_factory, scan_id: int, project_path_str: str):
             for _, _, files in os.walk(project_path):
                 total_files += len(files)
 
-        # Initialize runners
-        gitleaks = GitleaksRunner()
-        bandit = BanditRunner()
-        semgrep = SemgrepRunner()
+        # Initialize runners (with CLI auto-detection & fallback enabled)
+        gitleaks = GitleaksRunner(use_cli=True)
+        bandit = BanditRunner(use_cli=True)
+        semgrep = SemgrepRunner(use_cli=True)
         dependency = DependencyRunner()
 
         findings = []

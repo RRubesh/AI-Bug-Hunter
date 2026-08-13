@@ -176,7 +176,7 @@ class PythonASTScanner(ast.NodeVisitor):
 
 
 class BanditRunner:
-    def __init__(self, use_cli: bool = False):
+    def __init__(self, use_cli: bool = True):
         self.use_cli = use_cli
         self.bandit_path = shutil.which("bandit")
 

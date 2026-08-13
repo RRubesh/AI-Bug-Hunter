@@ -45,6 +45,18 @@ SECRET_PATTERNS = [
         "message": "GitHub Personal Access Token or OAuth Token exposed."
     },
     {
+        "category": "OpenAI API Key",
+        "pattern": r"\bsk-(?:proj-)?[a-zA-Z0-9_-]{32,}\b",
+        "severity": "CRITICAL",
+        "message": "OpenAI API key exposed in cleartext."
+    },
+    {
+        "category": "Google API Key",
+        "pattern": r"\bAIza[0-9A-Za-z-_]{35}\b",
+        "severity": "HIGH",
+        "message": "Google Cloud API Key exposed in source code."
+    },
+    {
         "category": "Database URL Credential",
         "pattern": r"\b[a-zA-Z]{3,10}://[^:\s]+:[^@\s]+@[a-zA-Z0-9.-]+:[0-9]+/[a-zA-Z0-9_-]+\b",
         "severity": "CRITICAL",
@@ -52,14 +64,14 @@ SECRET_PATTERNS = [
     },
     {
         "category": "Generic Password/Token",
-        "pattern": r"(?i)\b(?:db_password|database_pwd|api_secret|jwt_secret|client_secret|client_private_key)\s*[:=]\s*['\"]([^'\"\s]{8,})['\"]",
+        "pattern": r"(?i)\b(?:db_password|database_pwd|api_secret|jwt_secret|client_secret|client_private_key|secret_key|api_key|app_secret)\s*[:=]\s*['\"]([^'\"\s]{6,})['\"]",
         "severity": "HIGH",
         "message": "Potential hardcoded credential or API password."
     }
 ]
 
 class GitleaksRunner:
-    def __init__(self, use_cli: bool = False):
+    def __init__(self, use_cli: bool = True):
         self.use_cli = use_cli
         self.gitleaks_path = shutil.which("gitleaks")
 

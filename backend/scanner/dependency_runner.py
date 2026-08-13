@@ -66,6 +66,27 @@ VULNERABLE_PACKAGES = {
             "category": "Server-Side Template Injection (SSTI)",
             "message": "Jinja2 versions < 2.11.3 are vulnerable to Server-Side Template Injection (SSTI).",
             "remediation": "Upgrade jinja2 to 2.11.3 or higher."
+        },
+        "pyyaml": {
+            "max_version": "5.3.1",
+            "severity": "HIGH",
+            "category": "Arbitrary Code Execution",
+            "message": "PyYAML versions < 5.4 are vulnerable to arbitrary code execution through FullLoader.",
+            "remediation": "Upgrade PyYAML to 5.4 or higher."
+        },
+        "pillow": {
+            "max_version": "8.3.2",
+            "severity": "HIGH",
+            "category": "Buffer Overflow",
+            "message": "Pillow versions < 9.0.0 contain multiple buffer overflow and DoS vulnerabilities.",
+            "remediation": "Upgrade Pillow to 9.0.0 or higher."
+        },
+        "flask": {
+            "max_version": "2.2.4",
+            "severity": "MEDIUM",
+            "category": "Session Fixation",
+            "message": "Flask versions < 2.2.5 may have session cookie handling issues.",
+            "remediation": "Upgrade Flask to 2.2.5 or higher."
         }
     }
 }

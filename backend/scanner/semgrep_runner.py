@@ -107,6 +107,37 @@ LANGUAGE_RULES = {
             "message": "Command creation using string concatenation can lead to command arguments modification.",
             "remediation": "Avoid string building for the command name or argument parameters. Pass them as distinct elements in the slice."
         }
+    ],
+    # Python
+    ".py": [
+        {
+            "category": "Code Injection",
+            "pattern": r"\b(eval|exec)\s*\(",
+            "severity": "HIGH",
+            "message": "Use of eval() or exec() can lead to arbitrary code execution (RCE).",
+            "remediation": "Avoid evaluating dynamic string expressions. Use structured data formats like JSON."
+        },
+        {
+            "category": "Command Injection",
+            "pattern": r"os\.system\s*\(|subprocess\.(?:Popen|run|call|check_output)\s*\([^,)]*shell\s*=\s*True",
+            "severity": "HIGH",
+            "message": "Executing shell commands with shell=True or os.system() is vulnerable to command injection.",
+            "remediation": "Pass arguments as a list of strings with shell=False."
+        },
+        {
+            "category": "SQL Injection",
+            "pattern": r"(?i)\.execute\s*\(\s*f['\"]|\.execute\s*\(\s*['\"].*(?:SELECT|INSERT|UPDATE|DELETE).*%|\.execute\s*\(\s*['\"].*\.format\(",
+            "severity": "HIGH",
+            "message": "Potential SQL Injection via dynamic string formatting in database query.",
+            "remediation": "Use parameterized queries (e.g., `cursor.execute('SELECT * FROM t WHERE id=%s', (id,))`)."
+        },
+        {
+            "category": "Insecure Deserialization",
+            "pattern": r"pickle\.loads\s*\(|yaml\.load\s*\([^,)]*(?:Loader\s*=\s*yaml\.(?:UnsafeLoader|Loader))?",
+            "severity": "HIGH",
+            "message": "Untrusted deserialization via pickle or unsafe YAML loader can execute arbitrary Python objects.",
+            "remediation": "Use yaml.safe_load() or JSON format for untrusted inputs."
+        }
     ]
 }
 
@@ -116,7 +147,7 @@ LANGUAGE_RULES[".tsx"] = LANGUAGE_RULES[".js"]
 LANGUAGE_RULES[".jsx"] = LANGUAGE_RULES[".js"]
 
 class SemgrepRunner:
-    def __init__(self, use_cli: bool = False):
+    def __init__(self, use_cli: bool = True):
         self.use_cli = use_cli
         self.semgrep_path = shutil.which("semgrep")
 

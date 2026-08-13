@@ -79,6 +79,23 @@ def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db
     except Exception as e:
         print(f"[Login Query Exception]: {e}")
 
+    # If database is fresh/empty, automatically provision the first login attempt as Admin
+    if not user:
+        try:
+            total_users = db.query(User).count()
+            if total_users == 0:
+                default_user = User(
+                    username=form_data.username,
+                    hashed_password=get_password_hash(form_data.password),
+                    role="admin"
+                )
+                db.add(default_user)
+                db.commit()
+                db.refresh(default_user)
+                user = default_user
+        except Exception as seed_err:
+            print(f"[Auto-Seed Admin Notice]: {seed_err}")
+
     if not user or not verify_password(form_data.password, user.hashed_password):
         try:
             mongo_manager.log_security_event(

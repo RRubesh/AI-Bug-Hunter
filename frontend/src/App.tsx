@@ -15,7 +15,7 @@ import { api } from "./services/api";
 import { 
   LayoutDashboard, PlusCircle, Settings, Users, LogOut, User,
   ChevronLeft, ChevronRight, Search, Bell, Shield, Menu, X, MessageSquare,
-  Sparkles, CheckCircle2, ShieldCheck, Activity
+  Sparkles, CheckCircle2
 } from "lucide-react";
 
 type PageType = "dashboard" | "upload" | "scan-progress" | "scan-results" | "settings" | "admin" | "ai-chat";

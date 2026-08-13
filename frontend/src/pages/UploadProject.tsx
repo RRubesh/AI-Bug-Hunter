@@ -5,7 +5,7 @@ import { GlassCard } from "../components/ui/GlassCard";
 import { Button } from "../components/ui/Button";
 import { 
   Upload, GitBranch, Code, Globe, FileArchive, 
-  AlertCircle, Shield, Cpu, Sparkles, FileText, Play, Check, ChevronRight
+  AlertCircle, Cpu, Sparkles, FileText, Play, Check
 } from "lucide-react";
 
 interface UploadProjectProps {
@@ -34,7 +34,6 @@ export const UploadProject: React.FC<UploadProjectProps> = ({ onUploadSuccess, o
   });
 
   // AI Model Selection
-  const [aiProvider] = useState("ollama");
   const [aiModel, setAiModel] = useState("qwen2.5-coder:1.5b");
 
   const [loading, setLoading] = useState(false);

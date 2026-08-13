@@ -10,8 +10,8 @@ import { PageHeader } from "../components/ui/PageHeader";
 import { CyberRadarLoader } from "../components/CyberRadarLoader";
 import { 
   ShieldAlert, ShieldX, Play, Trash2, CheckCircle2, AlertTriangle, 
-  Eye, Plus, ShieldCheck, Activity, LineChart, FileCode, RefreshCw,
-  Search, ArrowUpRight, PieChart, BarChart3, TrendingUp, Layers, Filter, Check
+  Eye, Plus, ShieldCheck, FileCode,
+  Search, ArrowUpRight, PieChart, BarChart3, TrendingUp, Layers, Filter
 } from "lucide-react";
 
 interface DashboardProps {
@@ -504,10 +504,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
               ) : (
                 filteredProjects.map((project) => {
                   const latest = project.latest_scan;
-                  const cCount = latest?.critical ?? 0;
-                  const hCount = latest?.high ?? 0;
-                  const mCount = latest?.medium ?? 0;
-                  const lCount = latest?.low ?? 0;
+                  const cCount = latest?.critical_count ?? 0;
+                  const hCount = latest?.high_count ?? 0;
+                  const mCount = latest?.medium_count ?? 0;
+                  const lCount = latest?.low_count ?? 0;
                   const pPenalty = cCount * 15 + hCount * 8 + mCount * 3 + lCount * 1;
                   const pScore = Math.max(0, Math.min(100, Math.round(100 - pPenalty)));
 
@@ -631,10 +631,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
           ) : (
             filteredProjects.map((project) => {
               const latest = project.latest_scan;
-              const cCount = latest?.critical ?? 0;
-              const hCount = latest?.high ?? 0;
-              const mCount = latest?.medium ?? 0;
-              const lCount = latest?.low ?? 0;
+              const cCount = latest?.critical_count ?? 0;
+              const hCount = latest?.high_count ?? 0;
+              const mCount = latest?.medium_count ?? 0;
+              const lCount = latest?.low_count ?? 0;
               const pPenalty = cCount * 15 + hCount * 8 + mCount * 3 + lCount * 1;
               const pScore = Math.max(0, Math.min(100, Math.round(100 - pPenalty)));
 

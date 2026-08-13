@@ -106,6 +106,10 @@ def is_mongo_connected() -> bool:
     return mongo_manager.is_connected()
 
 def get_db():
+    try:
+        Base.metadata.create_all(bind=engine)
+    except Exception:
+        pass
     db = SessionLocal()
     try:
         yield db

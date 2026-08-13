@@ -73,14 +73,23 @@ def register(user_in: UserCreate, request: Request, db: Session = Depends(get_db
 
 @router.post("/login", response_model=Token)
 def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.username == form_data.username).first()
+    user = None
+    try:
+        user = db.query(User).filter(User.username == form_data.username).first()
+    except Exception as e:
+        print(f"[Login Query Exception]: {e}")
+
     if not user or not verify_password(form_data.password, user.hashed_password):
-        mongo_manager.log_security_event(
-            event_type="login_failed",
-            description=f"Failed login attempt for username: {form_data.username}",
-            ip_address=request.client.host if request.client else None,
-            user_agent=request.headers.get("user-agent")
-        )
+        try:
+            mongo_manager.log_security_event(
+                event_type="login_failed",
+                description=f"Failed login attempt for username: {form_data.username}",
+                ip_address=request.client.host if request.client else None,
+                user_agent=request.headers.get("user-agent")
+            )
+        except Exception:
+            pass
+
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
@@ -100,13 +109,16 @@ def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db
     except Exception:
         pass
 
-    mongo_manager.log_security_event(
-        event_type="login_success",
-        description=f"User logged in: {user.username}",
-        user_id=user.id,
-        ip_address=request.client.host if request.client else None,
-        user_agent=request.headers.get("user-agent")
-    )
+    try:
+        mongo_manager.log_security_event(
+            event_type="login_success",
+            description=f"User logged in: {user.username}",
+            user_id=user.id,
+            ip_address=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent")
+        )
+    except Exception:
+        pass
 
     access_token = create_access_token(data={"sub": user.username, "role": user.role})
     return {

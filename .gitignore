@@ -41,3 +41,5 @@ test_report_escaped.pdf
 .idea/
 .DS_Store
 Thumbs.db
+.vercel
+.env*

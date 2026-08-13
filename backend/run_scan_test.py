@@ -1,6 +1,7 @@
 import sys
 import traceback
-sys.path.append(r"c:\Deskop\AI Bug Hunter")
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from backend.database import SessionLocal
 from backend.models import Project, Scan, Vulnerability

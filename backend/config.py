@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     # Database
     # Use SQLite by default for zero-config run, fallback if PostgreSQL fails
     DATABASE_URL: str = os.getenv("DATABASE_URL", f"sqlite:///{BASE_DIR}/ai_bug_hunter.db")
+    MONGODB_URL: str = os.getenv("MONGODB_URL", "")
+    MONGODB_URI: str = os.getenv("MONGODB_URI", "")
+    MONGODB_DB_NAME: str = os.getenv("MONGODB_DB_NAME", "ai_bug_hunter")
+    MONGODB_DATABASE: str = os.getenv("MONGODB_DATABASE", "ai_bug_hunter")
     
     # Local AI (Ollama)
     OLLAMA_API_URL: str = os.getenv("OLLAMA_API_URL", "http://localhost:11434")
@@ -34,7 +38,8 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(
         env_file=".env",
-        env_file_encoding="utf-8"
+        env_file_encoding="utf-8",
+        extra="ignore"
     )
 
 # Create required directories
@@ -42,3 +47,15 @@ os.makedirs(Settings().UPLOAD_DIR, exist_ok=True)
 os.makedirs(Settings().REPORT_DIR, exist_ok=True)
 
 settings = Settings()
+
+# Synchronize MONGODB_URL and MONGODB_URI
+if not settings.MONGODB_URL and settings.MONGODB_URI:
+    settings.MONGODB_URL = settings.MONGODB_URI
+if not settings.MONGODB_DB_NAME and settings.MONGODB_DATABASE:
+    settings.MONGODB_DB_NAME = settings.MONGODB_DATABASE
+
+# If DATABASE_URL is set to a MongoDB Atlas URL, extract it for MONGODB_URL and fallback DATABASE_URL to SQLite for SQLAlchemy
+if settings.DATABASE_URL.startswith("mongodb://") or settings.DATABASE_URL.startswith("mongodb+srv://"):
+    if not settings.MONGODB_URL:
+        settings.MONGODB_URL = settings.DATABASE_URL
+    settings.DATABASE_URL = f"sqlite:///{settings.BASE_DIR}/ai_bug_hunter.db"

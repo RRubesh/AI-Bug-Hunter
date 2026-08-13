@@ -1,7 +1,7 @@
 import sys
 from pathlib import Path
-# Add backend to sys.path
-sys.path.append(r"c:\Deskop\AI Bug Hunter")
+# Add project root to sys.path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from backend.models import Scan, Project, Vulnerability
 from backend.reports.pdf_gen import generate_pdf_report

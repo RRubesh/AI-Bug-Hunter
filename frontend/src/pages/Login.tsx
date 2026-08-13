@@ -1,7 +1,11 @@
 import React, { useState } from "react";
 import { api } from "../services/api";
 import logo from "../assets/logo.jpg";
-import { Lock, User, AlertCircle } from "lucide-react";
+
+import { Lock, User, AlertCircle, Eye, EyeOff, ArrowRight } from "lucide-react";
+
+import { GlassCard } from "../components/ui/GlassCard";
+import { Button } from "../components/ui/Button";
 
 interface LoginProps {
   onLoginSuccess: (role: string, username: string) => void;
@@ -12,13 +16,14 @@ interface LoginProps {
 export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateToRegister, onNavigateToForgotPassword }) => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!username || !password) {
-      setError("Please fill in all fields.");
+      setError("Please enter your username and password credentials.");
       return;
     }
 
@@ -37,105 +42,127 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateToRegist
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#040712] px-4 relative overflow-hidden font-sans cyber-grid">
+    <div className="min-h-screen flex items-center justify-center bg-[#030712] px-4 relative overflow-hidden font-sans cyber-grid">
+      <video
+        className="auth-video-background"
+        autoPlay
+        loop
+        muted
+        playsInline
+        aria-hidden="true"
+      >
+        <source src="/auth-background.mp4" type="video/mp4" />
+      </video>
+      <div className="auth-video-overlay" aria-hidden="true" />
       
-      {/* Background Neon Glowing Elements */}
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-cyan-500/5 rounded-full blur-3xl pulsing-dot -z-10"></div>
-      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl pulsing-dot -z-10"></div>
- 
-      <div className="w-full max-w-md glass-panel rounded-2xl border-slate-800/80 p-8 shadow-2xl relative">
-        {/* Decorative Top Glow Bar */}
-        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-cyan-500 to-emerald-400 rounded-t-2xl"></div>
- 
-        <div className="flex flex-col items-center mb-8">
-          <img src={logo} alt="AI Bug Hunter Logo" className="w-16 h-16 rounded-2xl object-cover shadow-lg shadow-cyan-500/20 border border-slate-800 mb-4" />
-          <h1 className="text-2xl font-bold tracking-tight text-slate-100 flex items-center gap-1.5">
-            AI Bug Hunter
-          </h1>
-          <p className="text-slate-400 text-xs mt-1 text-center">
-            Defensive Security & AI-Powered Vulnerability Analysis
-          </p>
-        </div>
- 
-        {error && (
-          <div className="mb-6 p-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs rounded-lg flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 shrink-0" />
-            <span>{error}</span>
-          </div>
-        )}
- 
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">
-              Username
-            </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
-                <User className="w-4 h-4" />
-              </div>
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 bg-slate-950/60 border border-slate-800 rounded-lg text-slate-200 placeholder-slate-600 text-sm focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-colors"
-                placeholder="developer"
-                required
+      {/* Soft Ambient Radial Lights */}
+      <div className="absolute top-1/4 left-1/3 w-96 h-96 bg-cyan-500/5 rounded-full blur-3xl pointer-events-none -z-10" />
+      <div className="absolute bottom-1/4 right-1/3 w-96 h-96 bg-violet-500/5 rounded-full blur-3xl pointer-events-none -z-10" />
+
+      <div className="w-full max-w-md relative z-10">
+        <GlassCard className="p-8 shadow-2xl relative" topBarGradient={true}>
+          
+          {/* Header */}
+          <div className="flex flex-col items-center mb-8 text-center">
+            <div className="relative mb-3">
+              <img
+                src={logo}
+                alt="AI Bug Hunter Logo"
+                className="h-20 w-auto max-w-[220px] object-contain rounded-xl shadow-xl shadow-cyan-500/20 border border-slate-800/80"
               />
+
+
+              <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-slate-950 status-dot-active" />
             </div>
+            <h1 className="text-2xl font-black tracking-wider text-gradient font-sans">
+              AI BUG HUNTER
+            </h1>
+            <p className="text-slate-400 text-xs mt-1 font-mono uppercase tracking-widest">
+              Enterprise SAST & Vulnerability Suite
+            </p>
           </div>
- 
-          <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">
-              Password
-            </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
-                <Lock className="w-4 h-4" />
+
+          {error && (
+            <div className="mb-6 p-3 bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs rounded-xl flex items-center gap-2.5">
+              <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5 font-mono">
+                Username
+              </label>
+              <div className="relative">
+                <User className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5 pointer-events-none" />
+                <input
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 glass-input rounded-xl text-sm focus:outline-none placeholder-slate-600"
+                  placeholder="developer"
+                  required
+                />
               </div>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 bg-slate-950/60 border border-slate-800 rounded-lg text-slate-200 placeholder-slate-600 text-sm focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-colors"
-                placeholder="••••••••"
-                required
-              />
             </div>
-          </div>
- 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-2.5 px-4 bg-gradient-to-r from-cyan-500 to-emerald-500 hover:from-cyan-600 hover:to-emerald-600 text-slate-950 font-bold text-sm rounded-lg shadow-lg shadow-cyan-500/10 focus:outline-none transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-          >
-            {loading ? (
-              <span className="w-4 h-4 border-2 border-slate-950/30 border-t-slate-950 rounded-full animate-spin"></span>
-            ) : (
-              "Access Platform"
-            )}
-          </button>
-        </form>
- 
-        <div className="mt-8 text-center border-t border-slate-800/80 pt-5 flex justify-between items-center px-1">
-          <p className="text-xs text-slate-500">
-            Don't have an account?{" "}
+
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5 font-mono">
+                Password
+              </label>
+              <div className="relative">
+                <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5 pointer-events-none" />
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full pl-10 pr-10 py-3 glass-input rounded-xl text-sm focus:outline-none placeholder-slate-600"
+                  placeholder="••••••••"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3.5 top-3.5 text-slate-500 hover:text-slate-300 transition-colors cursor-pointer"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            <Button
+              type="submit"
+              variant="primary"
+              size="lg"
+              loading={loading}
+              className="w-full justify-center"
+              icon={ArrowRight}
+            >
+              Access Security Suite
+            </Button>
+          </form>
+
+          <div className="mt-8 pt-5 border-t border-slate-800/80 flex items-center justify-between text-xs">
             <button
               type="button"
               onClick={onNavigateToRegister}
-              className="text-cyan-400 hover:underline font-semibold focus:outline-none cursor-pointer"
+              className="text-cyan-400 hover:underline font-semibold cursor-pointer"
             >
-              Register here
+              Create New Account
             </button>
-          </p>
-          <button
-            type="button"
-            onClick={onNavigateToForgotPassword}
-            className="text-xs text-cyan-400 hover:underline font-semibold focus:outline-none cursor-pointer"
-          >
-            Forgot password?
-          </button>
-        </div>
+            <button
+              type="button"
+              onClick={onNavigateToForgotPassword}
+              className="text-slate-400 hover:text-slate-200 cursor-pointer"
+            >
+              Forgot Password?
+            </button>
+          </div>
+        </GlassCard>
       </div>
     </div>
   );
 };
+
+export default Login;

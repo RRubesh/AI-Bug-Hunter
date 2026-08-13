@@ -81,7 +81,7 @@ class GitleaksRunner:
                     "--no-git",
                     "--exit-code", "0"
                 ]
-                subprocess.run(cmd, capture_output=True, text=True)
+                subprocess.run(cmd, capture_output=True, text=True, timeout=60)
                 
                 if report_file.exists():
                     with open(report_file, "r") as f:
@@ -89,10 +89,12 @@ class GitleaksRunner:
                     
                     # Convert to uniform schema
                     for item in cli_findings:
+                        if not isinstance(item, dict):
+                            continue
                         findings.append({
-                            "file_path": item.get("File", ""),
-                            "line_number": item.get("StartLine", 1),
-                            "code_snippet": item.get("Match", ""),
+                            "file_path": str(item.get("File") or "main.py"),
+                            "line_number": item.get("StartLine") or 1,
+                            "code_snippet": str(item.get("Match") or ""),
                             "severity": "CRITICAL",  # secrets are almost always critical/high
                             "category": "Hardcoded Secret",
                             "message": f"Detected potential secret: {item.get('Description', 'Credential')}",
@@ -115,7 +117,14 @@ class GitleaksRunner:
                     continue
                 
                 full_path = Path(root) / file
-                relative_path = full_path.relative_to(target_path).as_posix()
+                try:
+                    relative_path = full_path.relative_to(target_path).as_posix()
+                except Exception:
+                    try:
+                        relative_path = os.path.relpath(str(full_path), str(target_path)).replace('\\', '/')
+                    except Exception:
+                        relative_path = file
+
                 
                 try:
                     # Skip files > 5MB to avoid hang

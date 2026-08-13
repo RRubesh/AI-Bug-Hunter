@@ -5,9 +5,18 @@ from typing import Dict, Any, List, Optional
 from backend.config import settings
 
 class OllamaClient:
-    def __init__(self, base_url: str = settings.OLLAMA_API_URL):
-        self.base_url = base_url
+    def __init__(self, base_url: Optional[str] = None):
+        self._base_url = base_url
         self.timeout = 25.0  # limit wait time for Ollama responses
+
+    @property
+    def base_url(self) -> str:
+        url = self._base_url or settings.OLLAMA_API_URL or "http://localhost:11434"
+        return url.rstrip("/")
+
+    @base_url.setter
+    def base_url(self, value: str):
+        self._base_url = value
 
     async def list_models(self) -> List[str]:
         provider = settings.AI_PROVIDER
@@ -23,11 +32,13 @@ class OllamaClient:
             return ["grok-2-1212", "grok-2-vision-1212", "grok-beta"]
             
         try:
+            target_url = f"{self.base_url}/api/tags"
             async with httpx.AsyncClient(timeout=3.0) as client:
-                response = await client.get(f"{self.base_url}/api/tags")
+                response = await client.get(target_url)
                 if response.status_code == 200:
                     models_data = response.json().get("models", [])
-                    return [m["name"] for m in models_data]
+                    if isinstance(models_data, list):
+                        return [m["name"] for m in models_data if isinstance(m, dict) and "name" in m]
         except Exception:
             pass
         return []
@@ -45,7 +56,8 @@ class OllamaClient:
             # If not installed, attempt to pull
             async with httpx.AsyncClient(timeout=120.0) as client:
                 payload = {"name": model_name, "stream": False}
-                response = await client.post(f"{self.base_url}/api/pull", json=payload)
+                target_url = f"{self.base_url}/api/pull"
+                response = await client.post(target_url, json=payload)
                 return response.status_code == 200
         except Exception:
             return False
@@ -295,25 +307,18 @@ class OllamaClient:
         return self._get_offline_fallback(category, message, code_snippet)
 
     def explain_vulnerability_sync(self, category: str, message: str, code_snippet: str) -> Dict[str, str]:
-        # Sync version for the background thread execution
+        # Sync version for background worker threads
         import asyncio
         try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            
-        if loop.is_running():
-            # If the event loop is already running, run it in a sync executor or run it safely
-            from concurrent.futures import ThreadPoolExecutor
-            with ThreadPoolExecutor() as executor:
-                future = executor.submit(lambda: asyncio.run(self.explain_vulnerability(category, message, code_snippet)))
-                return future.result()
-        else:
+            return asyncio.run(self.explain_vulnerability(category, message, code_snippet))
+        except Exception:
             try:
-                return loop.run_until_complete(self.explain_vulnerability(category, message, code_snippet))
-            finally:
-                pass
+                from concurrent.futures import ThreadPoolExecutor
+                with ThreadPoolExecutor(max_workers=1) as executor:
+                    future = executor.submit(lambda: asyncio.run(self.explain_vulnerability(category, message, code_snippet)))
+                    return future.result()
+            except Exception:
+                return self._get_offline_fallback(category, message, code_snippet)
 
     async def chat_about_scan(self, chat_history: list, user_message: str, code_context: str) -> str:
         system_prompt = (

@@ -4,6 +4,8 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from backend.database import Base
+from backend.database import is_mongo_connected as database_is_mongo_connected
+from backend.database import get_mongo_db as database_get_mongo_db
 from backend.models import User, Project, Scan, Vulnerability
 from backend.scanner.gitleaks_runner import GitleaksRunner
 from backend.scanner.bandit_runner import BanditRunner
@@ -12,6 +14,8 @@ from backend.scanner.dependency_runner import DependencyRunner
 from backend.scanner.engine import detect_language
 from backend.reports.pdf_gen import generate_pdf_report
 from backend.reports.html_gen import generate_html_report
+import backend.database as database_module
+import backend.scanner.engine as scanner_engine
 
 # Setup Test Database (in-memory SQLite)
 from sqlalchemy.pool import StaticPool
@@ -132,6 +136,59 @@ def test_reports_generation(db_session):
     generate_html_report(scan, project, [vuln], html_path)
     assert os.path.exists(html_path)
     os.remove(html_path)
+
+
+def test_execute_scan_task_completes_when_mongodb_is_unavailable(db_session, monkeypatch):
+    user = User(username="scan_task_user", hashed_password="hashed_pwd", role="developer")
+    db_session.add(user)
+    db_session.commit()
+
+    project = Project(name="scan_task_project", upload_type="folder", owner_id=user.id)
+    db_session.add(project)
+    db_session.commit()
+
+    scan = Scan(project_id=project.id, status="pending", progress=0)
+    db_session.add(scan)
+    db_session.commit()
+    scan_id = scan.id
+
+    temp_dir = "./temp_test_scan_engine"
+    os.makedirs(temp_dir, exist_ok=True)
+    sample_file = os.path.join(temp_dir, "app.py")
+    with open(sample_file, "w") as f:
+        f.write("import subprocess\nsubprocess.run(['echo', 'hello'])\n")
+
+    try:
+        monkeypatch.setattr(GitleaksRunner, "scan", lambda self, path: [])
+        monkeypatch.setattr(BanditRunner, "scan", lambda self, path: [{
+            "file_path": "app.py",
+            "line_number": 2,
+            "category": "Command Injection",
+            "severity": "HIGH",
+            "message": "subprocess execution found",
+            "tool_name": "Bandit",
+            "code_snippet": "subprocess.run(['echo', 'hello'])",
+            "remediation": "Validate command inputs"
+        }])
+        monkeypatch.setattr(SemgrepRunner, "scan", lambda self, path: [])
+        monkeypatch.setattr(DependencyRunner, "scan", lambda self, path: [])
+        monkeypatch.setattr(database_module, "is_mongo_connected", lambda: False)
+        monkeypatch.setattr(database_module, "get_mongo_db", lambda: None)
+        monkeypatch.setattr(scanner_engine.ollama_client, "explain_vulnerability_sync", lambda *args, **kwargs: {"explanation": "Test explanation", "fix": "Use safer APIs"})
+
+        scanner_engine.execute_scan_task(lambda: db_session, scan_id, temp_dir)
+
+        fresh_session = TestingSessionLocal()
+        try:
+            refreshed = fresh_session.query(Scan).filter(Scan.id == scan_id).one()
+            assert refreshed.status == "completed"
+            assert refreshed.total_vulnerabilities == 1
+            assert refreshed.high_count == 1
+        finally:
+            fresh_session.close()
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
 
 def test_admin_endpoints(db_session):
     from fastapi.testclient import TestClient

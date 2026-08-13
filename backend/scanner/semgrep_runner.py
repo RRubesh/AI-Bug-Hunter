@@ -135,7 +135,7 @@ class SemgrepRunner:
                     "-o", str(report_file),
                     str(target_path)
                 ]
-                subprocess.run(cmd, capture_output=True, text=True)
+                subprocess.run(cmd, capture_output=True, text=True, timeout=60)
                 
                 if report_file.exists():
                     with open(report_file, "r") as f:
@@ -143,21 +143,24 @@ class SemgrepRunner:
                     
                     results = data.get("results", [])
                     for item in results:
+                        if not isinstance(item, dict):
+                            continue
                         path_in_item = item.get("path", "")
-                        rel_path = os.path.relpath(path_in_item, target_dir).replace('\\', '/') if os.path.isabs(path_in_item) else path_in_item
+                        rel_path = os.path.relpath(path_in_item, target_dir).replace('\\', '/') if (path_in_item and os.path.isabs(path_in_item)) else (path_in_item or "main.py")
                         
-                        extra = item.get("extra", {})
-                        metadata = extra.get("metadata", {})
+                        extra = item.get("extra") or {}
+                        metadata = extra.get("metadata") or {}
+                        start_info = item.get("start") or {}
                         
                         findings.append({
                             "file_path": rel_path,
-                            "line_number": item.get("start", {}).get("line", 1),
-                            "code_snippet": extra.get("lines", "").strip(),
-                            "severity": extra.get("severity", "MEDIUM").upper(),
-                            "category": metadata.get("category", "Security Vulnerability"),
-                            "message": extra.get("message", "Semgrep security finding"),
+                            "line_number": start_info.get("line", 1) if isinstance(start_info, dict) else 1,
+                            "code_snippet": str(extra.get("lines") or "").strip(),
+                            "severity": str(extra.get("severity") or "MEDIUM").upper(),
+                            "category": str(metadata.get("category") or "Security Vulnerability"),
+                            "message": str(extra.get("message") or "Semgrep security finding"),
                             "tool_name": "Semgrep",
-                            "remediation": extra.get("remediation", "Apply standard secure coding practices to fix this issue.")
+                            "remediation": str(extra.get("remediation") or "Apply standard secure coding practices to fix this issue.")
                         })
                     os.remove(report_file)
                     return findings
@@ -172,8 +175,15 @@ class SemgrepRunner:
                 ext = Path(file).suffix.lower()
                 if ext in LANGUAGE_RULES:
                     full_path = Path(root) / file
-                    relative_path = full_path.relative_to(target_path).as_posix()
+                    try:
+                        relative_path = full_path.relative_to(target_path).as_posix()
+                    except Exception:
+                        try:
+                            relative_path = os.path.relpath(str(full_path), str(target_path)).replace('\\', '/')
+                        except Exception:
+                            relative_path = file
                     rules = LANGUAGE_RULES[ext]
+
                     
                     try:
                         with open(full_path, "r", encoding="utf-8", errors="ignore") as f:

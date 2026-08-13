@@ -77,6 +77,7 @@ class Vulnerability(Base):
     remediation = Column(Text, nullable=True)
     ai_explanation = Column(Text, nullable=True)
     ai_fix = Column(Text, nullable=True)
+    status = Column(String, default="open")  # open, resolved, ignored, false_positive
     
     created_at = Column(DateTime, default=utcnow)
 

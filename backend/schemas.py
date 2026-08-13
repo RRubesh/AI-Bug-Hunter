@@ -39,8 +39,8 @@ class ProjectCreate(ProjectBase):
 
 class ProjectResponse(ProjectBase):
     id: int
-    upload_type: str
-    language_detected: Optional[str]
+    upload_type: str = "file"
+    language_detected: Optional[str] = None
     owner_id: int
     owner_username: Optional[str] = None
     created_at: datetime
@@ -52,16 +52,16 @@ class ProjectResponse(ProjectBase):
 class ScanResponse(BaseModel):
     id: int
     project_id: int
-    status: str
-    progress: int
-    trigger_type: str
-    total_vulnerabilities: int
-    critical_count: int
-    high_count: int
-    medium_count: int
-    low_count: int
+    status: str = "pending"
+    progress: int = 0
+    trigger_type: Optional[str] = "manual"
+    total_vulnerabilities: int = 0
+    critical_count: int = 0
+    high_count: int = 0
+    medium_count: int = 0
+    low_count: int = 0
     created_at: datetime
-    finished_at: Optional[datetime]
+    finished_at: Optional[datetime] = None
     project: Optional[ProjectResponse] = None
 
     model_config = ConfigDict(from_attributes=True)
@@ -70,23 +70,28 @@ class ScanResponse(BaseModel):
 class VulnerabilityResponse(BaseModel):
     id: int
     scan_id: int
-    file_path: str
-    line_number: Optional[int]
-    code_snippet: Optional[str]
-    severity: str
-    category: str
-    message: str
-    tool_name: str
+    file_path: str = "main.py"
+    line_number: Optional[int] = 1
+    code_snippet: Optional[str] = ""
+    severity: str = "INFO"
+    category: str = "Security Vulnerability"
+    message: str = ""
+    tool_name: str = "Scanner Engine"
+    status: str = "open"
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
 
 class VulnerabilityDetail(VulnerabilityResponse):
-    remediation: Optional[str]
-    ai_explanation: Optional[str]
-    ai_fix: Optional[str]
+    remediation: Optional[str] = None
+    ai_explanation: Optional[str] = None
+    ai_fix: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class VulnerabilityUpdate(BaseModel):
+    status: str  # open, resolved, ignored, false_positive
 
 # --- Chat Schemas ---
 class ChatMessageBase(BaseModel):
@@ -122,6 +127,26 @@ class ScanStats(BaseModel):
     severity_distribution: SeverityStats
     scans_history: List[ScanResponse]
 
+class DashboardSummary(BaseModel):
+    critical: int = 0
+    high: int = 0
+    medium: int = 0
+    low: int = 0
+    total_scans: int = 0
+    total_vulnerabilities: int = 0
+    fixed_vulnerabilities: int = 0
+    security_score: int = 100
+    recent_scans: List[ScanResponse] = []
+
+class SecurityEventResponse(BaseModel):
+    id: Optional[str] = None
+    user_id: Optional[int] = None
+    event_type: str
+    description: str
+    ip_address: Optional[str] = None
+    user_agent: Optional[str] = None
+    created_at: datetime
+
 class AppSettings(BaseModel):
     ollama_url: str
     default_model: str
@@ -147,5 +172,6 @@ class PasswordReset(BaseModel):
     username: str
     recovery_key: str
     new_password: str
+
 
 

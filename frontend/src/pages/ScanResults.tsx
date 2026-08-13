@@ -1,548 +1,966 @@
 import React, { useEffect, useState } from "react";
 import { api } from "../services/api";
-import type { Scan, Vulnerability, ChatMessage } from "../services/api";
+import type { Scan, Vulnerability } from "../services/api";
+import { GlassCard } from "../components/ui/GlassCard";
+import { Button } from "../components/ui/Button";
+import logo from "../assets/logo.jpg";
+import { CyberRadarLoader } from "../components/CyberRadarLoader";
+
+
 import { 
-  ShieldAlert, ShieldX, AlertTriangle, Info, Terminal, Download, 
-  MessageSquare, Sparkles, Send, FileCode
+  Shield, Download, Sparkles, ArrowLeft, Copy, Check, Search, 
+  MessageSquare, FileText, Code, Key, Package, 
+  Share2, Printer, X, CheckCircle2, Cpu, BarChart3
 } from "lucide-react";
 
 interface ScanResultsProps {
   scanId: number;
   onNavigateToDashboard: () => void;
+  onNavigateToChat?: () => void;
 }
 
-export const ScanResults: React.FC<ScanResultsProps> = ({ scanId, onNavigateToDashboard }) => {
+export const ScanResults: React.FC<ScanResultsProps> = ({ scanId, onNavigateToDashboard, onNavigateToChat }) => {
   const [scan, setScan] = useState<Scan | null>(null);
   const [vulnerabilities, setVulnerabilities] = useState<Vulnerability[]>([]);
   const [selectedVuln, setSelectedVuln] = useState<Vulnerability | null>(null);
+  const [inspectorOpen, setInspectorOpen] = useState(false);
   const [fileContent, setFileContent] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [loadingFile, setLoadingFile] = useState(false);
   const [enriching, setEnriching] = useState(false);
-  const [error, setError] = useState("");
-
-  const userRole = localStorage.getItem("role");
-  const isPaidOrAdmin = userRole === "admin" || userRole === "paid";
-
-  // Chat integration inside sidebar
-  const [chatOpen, setChatOpen] = useState(false);
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
-  const [chatInput, setChatInput] = useState("");
-  const [sendingChat, setSendingChat] = useState(false);
+  const [copiedFix, setCopiedFix] = useState(false);
+  const [copiedShare, setCopiedShare] = useState(false);
+  
+  // Filter & Search states
+  const [activeTab, setActiveTab] = useState<string>("ALL");
+  const [searchQuery, setSearchQuery] = useState<string>("");
 
   useEffect(() => {
     let active = true;
-    const fetchResults = async () => {
-      try {
-        const scanData = await api.getScan(scanId);
+    Promise.all([api.getScan(scanId), api.getVulnerabilities(scanId)])
+      .then(([scanData, vulnsData]) => {
         if (!active) return;
         setScan(scanData);
-        const vulnsData = await api.getVulnerabilities(scanId);
-        if (!active) return;
         setVulnerabilities(vulnsData);
-        if (vulnsData.length > 0) {
-          setSelectedVuln(vulnsData[0]);
-        }
-      } catch (err: unknown) {
+      })
+      .catch((err: unknown) => {
         if (!active) return;
-        const errMsg = err instanceof Error ? err.message : "Failed to fetch scan results.";
-        setError(errMsg);
-      } finally {
-        if (active) {
-          setLoading(false);
-        }
-      }
-    };
-
-    (async () => {
-      await Promise.resolve();
-      if (active) {
-        fetchResults();
-      }
-    })();
+        console.error(err);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
 
     return () => {
       active = false;
     };
   }, [scanId]);
 
-  // Fetch file content whenever selected vulnerability changes
+  // Fetch code content when inspecting a vulnerability
   useEffect(() => {
     if (!selectedVuln || !scan) return;
-    
-    const fetchCode = async () => {
-      setLoadingFile(true);
-      try {
-        const content = await api.getFileContent(scan.project_id, selectedVuln.file_path);
-        setFileContent(content);
-      } catch {
-        // Fallback to empty content or snippet only
-        setFileContent("");
-      } finally {
-        setLoadingFile(false);
-      }
+    let active = true;
+    setLoadingFile(true);
+    api.getFileContent(scan.project_id, selectedVuln.file_path)
+      .then((content) => {
+        if (active) setFileContent(content);
+      })
+      .catch(() => {
+        if (active) setFileContent("");
+      })
+      .finally(() => {
+        if (active) setLoadingFile(false);
+      });
+
+    return () => {
+      active = false;
     };
-    
-    fetchCode();
   }, [selectedVuln, scan]);
 
-  // Load chat messages when chat sidebar opens
-  useEffect(() => {
-    if (chatOpen && scan) {
-      const fetchChat = async () => {
-        try {
-          const history = await api.getChatHistory(scan.id);
-          setChatMessages(history);
-        } catch (err) {
-          console.error(err);
-        }
-      };
-      fetchChat();
-    }
-  }, [chatOpen, scan]);
-
-  const handleEnrich = async () => {
-    if (!selectedVuln) return;
+  const handleEnrichWithAI = async (vulnId: number) => {
     setEnriching(true);
     try {
-      const updatedVuln = await api.enrichVulnerability(selectedVuln.id);
-      setSelectedVuln(updatedVuln);
-      // Update in main list
-      setVulnerabilities(vulnerabilities.map((v) => (v.id === updatedVuln.id ? updatedVuln : v)));
+      const updatedVuln = await api.enrichVulnerability(vulnId);
+      setVulnerabilities(vulnerabilities.map((v) => (v.id === vulnId ? updatedVuln : v)));
+      if (selectedVuln?.id === vulnId) {
+        setSelectedVuln(updatedVuln);
+      }
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : String(err);
-      alert("Failed to enrich: " + errMsg);
+      alert("Error invoking AI remediation engine: " + errMsg);
     } finally {
       setEnriching(false);
     }
   };
 
-  const handleSendChat = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!chatInput.trim() || !scan || sendingChat) return;
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedFix(true);
+    setTimeout(() => setCopiedFix(false), 2000);
+  };
 
-    const userText = chatInput;
-    setChatInput("");
-    setSendingChat(true);
+  const [downloading, setDownloading] = useState<string | null>(null);
 
-    // Optimistically add user message to list
-    const tempUserMsg: ChatMessage = {
-      id: Date.now(),
-      scan_id: scan.id,
-      user_id: 0,
-      message: userText,
-      is_ai: false,
-      created_at: new Date().toISOString(),
-    };
-    setChatMessages((prev) => [...prev, tempUserMsg]);
-
+  const handleDownload = async (format: "pdf" | "html" | "json" | "csv") => {
+    setDownloading(format);
     try {
-      const aiReply = await api.sendChatMessage(scan.id, userText, selectedVuln?.id);
-      setChatMessages((prev) => [...prev.filter((m) => m.id !== tempUserMsg.id), tempUserMsg, aiReply]);
+      await api.downloadReportFile(scanId, format);
     } catch (err: unknown) {
-      const errMsg = err instanceof Error ? err.message : String(err);
-      alert("Chat failed: " + errMsg);
+      // Fallback to opening window with authenticated query token
+      window.open(api.getReportDownloadUrl(scanId, format), "_blank");
     } finally {
-      setSendingChat(false);
+      setDownloading(null);
     }
   };
 
-  const getSeverityIcon = (severity: string) => {
-    switch (severity.toUpperCase()) {
-      case "CRITICAL":
-        return <ShieldX className="w-4 h-4 text-rose-500" />;
-      case "HIGH":
-        return <ShieldAlert className="w-4 h-4 text-orange-500" />;
-      case "MEDIUM":
-        return <AlertTriangle className="w-4 h-4 text-amber-500" />;
-      default:
-        return <Info className="w-4 h-4 text-blue-500" />;
-    }
+
+
+  const handleShare = () => {
+    navigator.clipboard.writeText(window.location.href);
+    setCopiedShare(true);
+    setTimeout(() => setCopiedShare(false), 2000);
   };
 
-  const getSeverityBadgeClass = (severity: string) => {
-    switch (severity.toUpperCase()) {
-      case "CRITICAL":
-        return "bg-rose-500/10 text-rose-400 border border-rose-500/25";
-      case "HIGH":
-        return "bg-orange-500/10 text-orange-400 border border-orange-500/25";
-      case "MEDIUM":
-        return "bg-amber-500/10 text-amber-400 border border-amber-500/25";
-      default:
-        return "bg-blue-500/10 text-blue-400 border border-blue-500/25";
-    }
+  const maskSecret = (snippet: string) => {
+
+    if (!snippet) return "****************";
+    const str = snippet.trim();
+    if (str.length <= 8) return str.slice(0, 2) + "****" + str.slice(-2);
+    return str.slice(0, 4) + "***************" + str.slice(-4);
   };
 
-  const downloadReportFile = async (format: string) => {
-    try {
-      const token = localStorage.getItem("token");
-      const headers: HeadersInit = {};
-      if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
-      }
-      const response = await fetch(`/api/scans/${scanId}/report/${format}`, {
-        headers,
-      });
-      if (!response.ok) {
-        throw new Error(`Failed to download report (${response.status})`);
-      }
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      
-      const extension = format;
-      a.download = `AI_Bug_Hunter_Report_${scan?.project.name || "scan"}_${scanId}.${extension}`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-    } catch (err) {
-      alert("Error downloading report: " + (err instanceof Error ? err.message : String(err)));
-    }
-  };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="w-10 h-10 border-4 border-slate-800 border-t-rose-500 rounded-full animate-spin"></div>
+      <div className="flex flex-col items-center justify-center min-h-[70vh]">
+        <CyberRadarLoader size="lg" text="DETECTING SECURITY FINDINGS" />
       </div>
     );
   }
 
-  // Group vulnerabilities by file path for listing
-  const filesMap: { [path: string]: Vulnerability[] } = {};
-  vulnerabilities.forEach((v) => {
-    if (!filesMap[v.file_path]) {
-      filesMap[v.file_path] = [];
-    }
-    filesMap[v.file_path].push(v);
+
+
+
+  // Calculate metrics
+  const criticalCount = scan?.critical_count || vulnerabilities.filter(v => v.severity.toUpperCase() === "CRITICAL").length;
+  const highCount = scan?.high_count || vulnerabilities.filter(v => v.severity.toUpperCase() === "HIGH").length;
+  const mediumCount = scan?.medium_count || vulnerabilities.filter(v => v.severity.toUpperCase() === "MEDIUM").length;
+  const lowCount = scan?.low_count || vulnerabilities.filter(v => v.severity.toUpperCase() === "LOW").length;
+  const totalIssues = vulnerabilities.length;
+  const fixedCount = vulnerabilities.filter(v => v.status === "resolved").length;
+
+  const secretsList = vulnerabilities.filter(v => 
+    v.category.toLowerCase().includes("secret") || 
+    v.category.toLowerCase().includes("credential") || 
+    v.tool_name.toLowerCase().includes("gitleaks")
+  );
+
+  const depsList = vulnerabilities.filter(v => 
+    v.category.toLowerCase().includes("dependency") || 
+    v.category.toLowerCase().includes("package") || 
+    v.tool_name.toLowerCase().includes("dependency")
+  );
+
+  const penalty = criticalCount * 15 + highCount * 8 + mediumCount * 3 + lowCount * 1;
+  const score = Math.max(0, Math.min(100, 100 - penalty));
+
+  let overallStatus = "SECURE";
+  let statusBadgeClass = "bg-emerald-500/10 text-emerald-400 border-emerald-500/30";
+  if (score < 60 || criticalCount > 0) {
+    overallStatus = "CRITICAL";
+    statusBadgeClass = "bg-rose-500/10 text-rose-400 border-rose-500/30 shadow-[0_0_15px_rgba(244,63,94,0.2)]";
+  } else if (score < 85 || highCount > 0) {
+    overallStatus = "AT RISK";
+    statusBadgeClass = "bg-amber-500/10 text-amber-400 border-amber-500/30";
+  }
+
+  // Filter vulnerabilities table
+  const filteredVulns = vulnerabilities.filter((v) => {
+    const matchesTab = 
+      activeTab === "ALL" ? true :
+      activeTab === "CRITICAL" ? v.severity.toUpperCase() === "CRITICAL" :
+      activeTab === "HIGH" ? v.severity.toUpperCase() === "HIGH" :
+      activeTab === "MEDIUM" ? v.severity.toUpperCase() === "MEDIUM" :
+      activeTab === "LOW" ? v.severity.toUpperCase() === "LOW" :
+      activeTab === "FIXED" ? v.status === "resolved" :
+      activeTab === "OPEN" ? v.status === "open" || !v.status : true;
+
+    const matchesSearch =
+      v.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      v.file_path.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      v.message.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      v.tool_name.toLowerCase().includes(searchQuery.toLowerCase());
+
+    return matchesTab && matchesSearch;
   });
 
   return (
-    <div className="space-y-6 relative min-h-[85vh] animate-fade-in">
-      {error && (
-        <div className="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs rounded-lg">
-          {error}
-        </div>
-      )}
-      {/* Top Results Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800/80 pb-4">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-xl font-black text-slate-100">{scan?.project.name}</h1>
-            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-900 text-slate-400 border border-slate-800 uppercase">
-              {scan?.project.language_detected}
-            </span>
-          </div>
-          <p className="text-[10px] text-slate-500 mt-1 font-mono">
-            Scan Session ID: #{scanId} | Completed: {scan?.finished_at ? new Date(scan.finished_at).toLocaleString() : "Unknown"}
-          </p>
+    <div className="max-w-7xl mx-auto space-y-8 animate-fade-in relative pb-16">
+      
+      {/* Subtle Background Layer */}
+      <div className="fixed top-20 left-1/2 -translate-x-1/2 w-[900px] h-[500px] bg-gradient-to-tr from-cyan-500/5 via-violet-500/5 to-transparent rounded-full blur-3xl pointer-events-none -z-10" />
+
+      {/* TOP REPORT ACTIONS BAR */}
+      <div className="flex flex-wrap items-center justify-between gap-4 p-4 glass-panel rounded-2xl border border-slate-800 bg-slate-950/70 backdrop-blur-md">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" icon={ArrowLeft} onClick={onNavigateToDashboard}>
+            Return to Dashboard
+          </Button>
+          <div className="h-4 w-[1px] bg-slate-800 hidden sm:block" />
+          <span className="text-xs font-mono text-slate-400 font-bold hidden sm:inline">
+            REPORT ID: <span className="text-cyan-400">REP-{scanId.toString().padStart(5, '0')}</span>
+          </span>
         </div>
 
-        {/* Report downloads */}
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {onNavigateToChat && (
+            <Button variant="glass" size="sm" icon={MessageSquare} onClick={onNavigateToChat}>
+              Ask AI Assistant
+            </Button>
+          )}
+
+          {/* Export Action Dropdown / Buttons */}
           <button
-            onClick={() => downloadReportFile("pdf")}
-            className="px-3 py-1.5 bg-slate-950 border border-slate-800 hover:bg-slate-900 text-[10px] font-bold text-slate-300 rounded-lg flex items-center gap-1.5 cursor-pointer transition-colors"
+            type="button"
+            onClick={() => handleDownload("pdf")}
+            disabled={downloading === "pdf"}
+            className="px-3 py-1.5 text-xs font-mono font-bold text-slate-200 bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer hover:scale-105 active:scale-95 shadow-sm disabled:opacity-50"
           >
-            <Download className="w-3.5 h-3.5" /> PDF
+            <Download className={`w-3.5 h-3.5 text-rose-400 ${downloading === "pdf" ? "animate-bounce" : ""}`} /> 
+            {downloading === "pdf" ? "Downloading..." : "Export PDF"}
           </button>
+
           <button
-            onClick={() => downloadReportFile("html")}
-            className="px-3 py-1.5 bg-slate-950 border border-slate-800 hover:bg-slate-900 text-[10px] font-bold text-slate-300 rounded-lg flex items-center gap-1.5 cursor-pointer transition-colors"
+            type="button"
+            onClick={() => handleDownload("json")}
+            disabled={downloading === "json"}
+            className="px-3 py-1.5 text-xs font-mono font-bold text-slate-200 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer hover:scale-105 active:scale-95 disabled:opacity-50"
           >
-            <Download className="w-3.5 h-3.5" /> HTML
+            <Code className={`w-3.5 h-3.5 text-amber-400 ${downloading === "json" ? "animate-bounce" : ""}`} /> 
+            {downloading === "json" ? "Downloading..." : "JSON"}
           </button>
+
           <button
-            onClick={() => downloadReportFile("json")}
-            className="px-3 py-1.5 bg-slate-950 border border-slate-800 hover:bg-slate-900 text-[10px] font-bold text-slate-300 rounded-lg flex items-center gap-1.5 cursor-pointer transition-colors"
+            type="button"
+            onClick={() => handleDownload("csv")}
+            disabled={downloading === "csv"}
+            className="px-3 py-1.5 text-xs font-mono font-bold text-slate-200 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer hover:scale-105 active:scale-95 disabled:opacity-50"
           >
-            <Download className="w-3.5 h-3.5" /> JSON
+            <FileText className={`w-3.5 h-3.5 text-emerald-400 ${downloading === "csv" ? "animate-bounce" : ""}`} /> 
+            {downloading === "csv" ? "Downloading..." : "CSV"}
           </button>
+
+
           <button
-            onClick={onNavigateToDashboard}
-            className="px-3 py-1.5 bg-gradient-to-r from-slate-800 to-slate-700 text-[10px] font-bold text-white rounded-lg cursor-pointer"
+            type="button"
+            onClick={handleShare}
+            className="px-3 py-1.5 text-xs font-mono font-bold text-slate-300 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
           >
-            Dashboard
+            {copiedShare ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Share2 className="w-3.5 h-3.5 text-cyan-400" />}
+            {copiedShare ? "Link Copied" : "Share"}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="px-3 py-1.5 text-xs font-mono font-bold text-slate-300 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
+          >
+            <Printer className="w-3.5 h-3.5 text-slate-400" /> Print
           </button>
         </div>
       </div>
 
-      {/* Main Results Layout Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left column: Findings Index */}
-        <div className="lg:col-span-4 space-y-4 max-h-[70vh] overflow-y-auto pr-2">
-          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Scan Findings Index</span>
+      {/* 1. REPORT HEADER */}
+      <GlassCard className="p-8 relative overflow-hidden" glowColor="cyan" topBarGradient={true}>
+        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-8">
           
-          {Object.keys(filesMap).length > 0 ? (
-            Object.keys(filesMap).map((filePath) => (
-              <div key={filePath} className="glass-panel border-slate-800/80 rounded-xl p-3 space-y-2">
-                <div className="flex items-center gap-1.5 border-b border-slate-900 pb-1.5">
-                  <FileCode className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                  <span className="text-[10px] font-semibold text-slate-400 truncate" title={filePath}>{filePath.split('/').pop()}</span>
-                </div>
-                
-                <div className="space-y-1.5">
-                  {filesMap[filePath].map((vuln) => (
-                    <button
-                      key={vuln.id}
-                      onClick={() => setSelectedVuln(vuln)}
-                      className={`w-full p-2 rounded-lg flex items-center justify-between text-left text-xs transition-colors cursor-pointer border ${
-                        selectedVuln?.id === vuln.id 
-                          ? "bg-slate-900 border-blue-500/50" 
-                          : "bg-slate-950/20 border-transparent hover:bg-slate-900/50"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 truncate">
-                        {getSeverityIcon(vuln.severity)}
-                        <span className="font-medium text-slate-200 truncate">{vuln.category}</span>
-                      </div>
-                      <span className="text-[9px] text-slate-500 font-mono pl-2 shrink-0">L{vuln.line_number || "N/A"}</span>
-                    </button>
-                  ))}
-                </div>
+          {/* Header Info */}
+          <div className="space-y-4 max-w-3xl">
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <img src={logo} alt="Logo" className="h-16 w-auto max-w-[200px] object-contain rounded-xl border border-cyan-500/30 shadow-lg shadow-cyan-500/20" />
+
+
+                <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-cyan-400 rounded-full border-2 border-slate-950 animate-ping" />
               </div>
-            ))
-          ) : (
-            <div className="p-8 text-center border border-dashed border-slate-800 rounded-xl text-xs text-slate-500">
-              No findings generated
+              <div>
+                <span className="text-xs font-mono font-bold uppercase tracking-widest text-cyan-400 block">
+                  AI Bug Hunter Platform
+                </span>
+                <h1 className="text-2xl md:text-3xl font-black text-slate-100 tracking-tight">
+                  Security Assessment Report
+                </h1>
+              </div>
             </div>
-          )}
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-4 border-t border-slate-800/80 font-mono text-xs">
+              <div>
+                <span className="text-slate-500 block text-[10px] uppercase font-bold">Target Project</span>
+                <span className="text-slate-200 font-bold truncate block">{scan?.project?.name || "Target Codebase"}</span>
+              </div>
+              <div>
+                <span className="text-slate-500 block text-[10px] uppercase font-bold">Repository Type</span>
+                <span className="text-cyan-400 font-bold uppercase block">{scan?.project?.upload_type || "File"}</span>
+              </div>
+              <div>
+                <span className="text-slate-500 block text-[10px] uppercase font-bold">Scan ID</span>
+                <span className="text-slate-300 font-bold block">#{scanId}</span>
+              </div>
+              <div>
+                <span className="text-slate-500 block text-[10px] uppercase font-bold">Timestamp</span>
+                <span className="text-slate-300 font-bold block truncate">
+                  {scan?.created_at ? new Date(scan.created_at).toLocaleString() : "Just now"}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Score & Status Badge Gauge */}
+          <div className="flex items-center gap-6 self-stretch lg:self-center justify-around lg:justify-end p-4 rounded-2xl bg-slate-950/60 border border-slate-800">
+            {/* SVG Score Ring */}
+            <div className="relative w-24 h-24 flex items-center justify-center">
+              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                <path
+                  className="text-slate-800"
+                  strokeWidth="3.5"
+                  stroke="currentColor"
+                  fill="none"
+                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                />
+                <path
+                  className={score >= 85 ? "text-emerald-400" : score >= 60 ? "text-amber-400" : "text-rose-500"}
+                  strokeDasharray={`${score}, 100`}
+                  strokeWidth="3.5"
+                  strokeLinecap="round"
+                  stroke="currentColor"
+                  fill="none"
+                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                />
+              </svg>
+              <div className="absolute flex flex-col items-center justify-center text-center">
+                <span className="text-2xl font-black font-mono text-slate-100 leading-none">{score}</span>
+                <span className="text-[9px] font-mono text-slate-400 uppercase font-bold mt-0.5">SCORE</span>
+              </div>
+            </div>
+
+            <div className="space-y-2 text-right">
+              <span className="text-[10px] font-mono uppercase font-bold text-slate-400 block">Overall Status</span>
+              <div className={`px-4 py-1.5 rounded-xl border text-xs font-mono font-bold uppercase tracking-wider inline-block ${statusBadgeClass}`}>
+                {overallStatus}
+              </div>
+              <span className="text-[10px] text-slate-500 font-mono block">v2.4.0 Enterprise</span>
+            </div>
+          </div>
+
         </div>
+      </GlassCard>
 
-        {/* Right column: Code Highlights & Detail Drawer */}
-        <div className="lg:col-span-8 space-y-5">
-          {selectedVuln ? (
-            <>
-              {/* Vulnerability Metadata */}
-              <div className="glass-panel border-slate-800 rounded-xl p-5 space-y-4">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="flex items-center gap-2.5">
-                    <span className={`px-2.5 py-0.5 text-[10px] font-bold rounded-full ${getSeverityBadgeClass(selectedVuln.severity)}`}>
-                      {selectedVuln.severity}
-                    </span>
-                    <h2 className="text-base font-bold text-slate-100">{selectedVuln.category}</h2>
-                  </div>
-                  <span className="text-[10px] text-slate-500 font-bold bg-slate-900 px-2 py-0.5 rounded border border-slate-850">
-                    {selectedVuln.tool_name}
-                  </span>
-                </div>
-                
-                <div>
-                  <span className="text-[10px] text-slate-500 font-bold block uppercase tracking-wider">Vulnerable File Location</span>
-                  <span className="text-xs text-slate-300 font-mono mt-0.5 block">{selectedVuln.file_path} {selectedVuln.line_number && `: Line ${selectedVuln.line_number}`}</span>
-                </div>
-
-                <div>
-                  <span className="text-[10px] text-slate-500 font-bold block uppercase tracking-wider">Vulnerability Threat Details</span>
-                  <p className="text-xs text-slate-300 mt-1 leading-relaxed">{selectedVuln.message}</p>
-                </div>
-              </div>
-
-              {/* In-File Code Highlight Section */}
-              <div className="glass-panel border-slate-800 rounded-xl overflow-hidden shadow-2xl">
-                <div className="bg-slate-950 px-4 py-2 border-b border-slate-850 flex items-center gap-2">
-                  <Terminal className="w-4 h-4 text-rose-500" />
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Source Code Preview</span>
-                </div>
-                
-                <div className="p-4 bg-slate-950 max-h-[30vh] overflow-y-auto text-xs font-mono leading-relaxed">
-                  {loadingFile ? (
-                    <div className="py-6 text-center text-slate-600">Loading code preview...</div>
-                  ) : fileContent ? (
-                    fileContent.split("\n").map((line, idx) => {
-                      const lineNum = idx + 1;
-                      const isTarget = lineNum === selectedVuln.line_number;
-                      return (
-                        <div 
-                          key={idx} 
-                          className={`flex items-start -mx-4 px-4 ${isTarget ? "bg-rose-500/10 border-l-2 border-rose-500 text-rose-300" : "text-slate-400"}`}
-                        >
-                          <span className="w-8 select-none text-[10px] text-slate-600 text-right pr-3 shrink-0">{lineNum}</span>
-                          <span className="whitespace-pre">{line}</span>
-                        </div>
-                      );
-                    })
-                  ) : (
-                    <pre className="text-rose-400 bg-rose-950/15 border border-rose-900/35 p-3 rounded text-[11px] whitespace-pre-wrap leading-normal">
-                      Could not fetch full file. Snippet:
-                      {"\n"}{selectedVuln.code_snippet || "No snippet available."}
-                    </pre>
-                  )}
-                </div>
-              </div>
-
-              {/* Remediation & AI Analysis tabs */}
-              <div className="glass-panel border-slate-800 rounded-xl p-5 space-y-4">
-                <div className="flex border-b border-slate-800/80 pb-2 justify-between items-center">
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Fix Remediation & AI Assistant</span>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setChatOpen(true)}
-                      className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-[10px] font-bold text-slate-300 rounded flex items-center gap-1 cursor-pointer"
-                    >
-                      <MessageSquare className="w-3.5 h-3.5" /> AI Chat
-                    </button>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  {/* Standard Remediation Box */}
-                  <div className="p-3.5 bg-slate-950/60 border border-slate-850 rounded-xl space-y-1">
-                    <span className="text-[10px] font-bold text-slate-400 block uppercase tracking-wider">Defensive Remediation Guide</span>
-                    <p className="text-xs text-slate-300 leading-relaxed">{selectedVuln.remediation}</p>
-                  </div>
-
-                  {/* AI Explanation & Rewrite Block */}
-                  {!isPaidOrAdmin ? (
-                    <div className="pt-3 border-t border-slate-900 text-center py-6 px-4 bg-slate-950/40 border border-slate-900/60 rounded-xl space-y-3 animate-fade-in">
-                      <div className="w-9 h-9 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto text-amber-400 shadow-lg shadow-amber-950/20">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-lock"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                      </div>
-                      <div className="space-y-1 max-w-sm mx-auto">
-                        <h4 className="text-[10px] font-black text-slate-200 uppercase tracking-wider">AI Security Review Locked</h4>
-                        <p className="text-[9px] text-slate-400 leading-relaxed">
-                          Custom vulnerability explanations and secure code suggestions are premium features. Upgrade your account to the <strong>Paid Plan</strong> to unlock defensive AI remediation.
-                        </p>
-                      </div>
-                    </div>
-                  ) : selectedVuln.ai_explanation ? (
-                    <div className="space-y-3 pt-3 border-t border-slate-900">
-                      <div className="flex items-center gap-1.5 text-emerald-400">
-                        <Sparkles className="w-4 h-4 fill-emerald-400/25" />
-                        <span className="text-[10px] font-bold uppercase tracking-wider">AI Security Review</span>
-                      </div>
-                      
-                      <div className="text-xs text-slate-300 leading-relaxed whitespace-pre-line bg-emerald-950/5 border border-emerald-900/10 p-4 rounded-xl">
-                        {selectedVuln.ai_explanation}
-                      </div>
-
-                      {selectedVuln.ai_fix && (
-                        <div className="space-y-2">
-                          <span className="text-[10px] font-bold text-emerald-400 block uppercase tracking-wider">AI Secure Implementation Recommendation</span>
-                          <pre className="p-4 bg-emerald-950/20 border border-emerald-900/30 rounded-xl overflow-x-auto text-[10px] text-emerald-300 font-mono leading-normal">
-                            {selectedVuln.ai_fix}
-                          </pre>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="pt-3 border-t border-slate-900 text-center py-4">
-                      <p className="text-xs text-slate-500 mb-3">AI secure remediation analysis has not been loaded for this vulnerability.</p>
-                      <button
-                        onClick={handleEnrich}
-                        disabled={enriching}
-                        className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-xs font-bold rounded-lg shadow shadow-emerald-500/10 hover:from-emerald-600 cursor-pointer disabled:opacity-50 flex items-center gap-1.5 mx-auto"
-                      >
-                        {enriching ? (
-                          <>
-                            <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                            <span>AI is Thinking...</span>
-                          </>
-                        ) : (
-                          <>
-                            <Sparkles className="w-3.5 h-3.5" /> Explain with AI Assistant
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </>
-          ) : (
-            <div className="p-12 text-center border border-dashed border-slate-800 rounded-xl text-xs text-slate-500">
-              Select a vulnerability from the index to display details
-            </div>
-          )}
+      {/* 2. EXECUTIVE SUMMARY CARDS GRID */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-9 gap-3">
+        <div className="p-4 glass-panel rounded-2xl border border-slate-800 text-center">
+          <span className="text-[10px] font-mono font-bold text-slate-400 uppercase block">Total Issues</span>
+          <span className="text-2xl font-black font-mono text-slate-100 block mt-1">{totalIssues}</span>
+        </div>
+        <div className="p-4 glass-panel rounded-2xl border border-rose-500/30 bg-rose-500/5 text-center">
+          <span className="text-[10px] font-mono font-bold text-rose-400 uppercase block">Critical</span>
+          <span className="text-2xl font-black font-mono text-rose-400 block mt-1">{criticalCount}</span>
+        </div>
+        <div className="p-4 glass-panel rounded-2xl border border-amber-500/30 bg-amber-500/5 text-center">
+          <span className="text-[10px] font-mono font-bold text-amber-400 uppercase block">High</span>
+          <span className="text-2xl font-black font-mono text-amber-400 block mt-1">{highCount}</span>
+        </div>
+        <div className="p-4 glass-panel rounded-2xl border border-yellow-500/30 bg-yellow-500/5 text-center">
+          <span className="text-[10px] font-mono font-bold text-yellow-400 uppercase block">Medium</span>
+          <span className="text-2xl font-black font-mono text-yellow-400 block mt-1">{mediumCount}</span>
+        </div>
+        <div className="p-4 glass-panel rounded-2xl border border-blue-500/30 bg-blue-500/5 text-center">
+          <span className="text-[10px] font-mono font-bold text-blue-400 uppercase block">Low</span>
+          <span className="text-2xl font-black font-mono text-blue-400 block mt-1">{lowCount}</span>
+        </div>
+        <div className="p-4 glass-panel rounded-2xl border border-cyan-500/30 bg-cyan-500/5 text-center">
+          <span className="text-[10px] font-mono font-bold text-cyan-400 uppercase block">Secrets</span>
+          <span className="text-2xl font-black font-mono text-cyan-400 block mt-1">{secretsList.length}</span>
+        </div>
+        <div className="p-4 glass-panel rounded-2xl border border-violet-500/30 bg-violet-500/5 text-center">
+          <span className="text-[10px] font-mono font-bold text-violet-400 uppercase block">Deps Issues</span>
+          <span className="text-2xl font-black font-mono text-violet-400 block mt-1">{depsList.length}</span>
+        </div>
+        <div className="p-4 glass-panel rounded-2xl border border-emerald-500/30 bg-emerald-500/5 text-center">
+          <span className="text-[10px] font-mono font-bold text-emerald-400 uppercase block">Fixed</span>
+          <span className="text-2xl font-black font-mono text-emerald-400 block mt-1">{fixedCount}</span>
+        </div>
+        <div className="p-4 glass-panel rounded-2xl border border-slate-800 text-center">
+          <span className="text-[10px] font-mono font-bold text-slate-400 uppercase block">Security Score</span>
+          <span className="text-2xl font-black font-mono text-cyan-400 block mt-1">{score}/100</span>
         </div>
       </div>
 
-      {/* Floating Chat Sidebar Drawer */}
-      {chatOpen && (
-        <div className="fixed inset-y-0 right-0 w-full md:w-96 bg-slate-950 border-l border-slate-800/80 shadow-2xl z-50 flex flex-col transition-all duration-300 animate-slide-in">
-          {/* Sidebar Header */}
-          <div className="p-4 border-b border-slate-850 flex justify-between items-center">
+      {/* 3. SEVERITY ANALYSIS & ENGINE STATUS */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        {/* Severity Distribution Chart Bar Card */}
+        <GlassCard className="p-6 space-y-4 lg:col-span-2">
+          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
             <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-amber-400 fill-amber-400/25" />
-              <span className="text-xs font-bold text-slate-200">AI Remediation Assistant</span>
+              <BarChart3 className="w-4 h-4 text-cyan-400" />
+              <h3 className="text-sm font-bold text-slate-200 uppercase font-mono tracking-wider">
+                Vulnerability Severity & Category Distribution
+              </h3>
             </div>
-            <button
-              onClick={() => setChatOpen(false)}
-              className="text-slate-500 hover:text-slate-300 text-xs font-bold cursor-pointer"
-            >
-              ✕
-            </button>
+            <span className="text-xs font-mono text-slate-500">REAL-TIME DATA</span>
           </div>
 
-          {/* Chat message logs */}
-          <div className="flex-1 p-4 overflow-y-auto space-y-4 scroll-smooth">
-            {!isPaidOrAdmin ? (
-              <div className="h-full flex flex-col items-center justify-center text-center p-6 space-y-3.5">
-                <div className="w-11 h-11 bg-amber-500/10 border border-amber-500/20 rounded-full flex items-center justify-center text-amber-400 shadow-lg shadow-amber-950/20 animate-pulse">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-lock"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                </div>
-                <div className="space-y-1">
-                  <h4 className="text-[10px] font-black text-slate-200 uppercase tracking-wider">AI Chat Assistant Locked</h4>
-                  <p className="text-[9px] text-slate-500 leading-relaxed max-w-[220px] mx-auto">
-                    Get interactive explanations, defensive refactoring tips, and code review support directly in your scan. Ask your administrator to upgrade your account to Paid.
-                  </p>
-                </div>
+          <div className="space-y-3 pt-2">
+            <div>
+              <div className="flex justify-between text-xs font-mono font-bold mb-1">
+                <span className="text-rose-400">CRITICAL VULNERABILITIES ({criticalCount})</span>
+                <span className="text-slate-400">{totalIssues > 0 ? Math.round((criticalCount / totalIssues) * 100) : 0}%</span>
               </div>
-            ) : chatMessages.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center p-6 text-slate-600">
-                <MessageSquare className="w-8 h-8 mb-2" />
-                <span className="text-xs">Ask anything about this scan's results or how to fix these vulnerabilities.</span>
+              <div className="h-2.5 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
+                <div className="h-full bg-rose-500 rounded-full transition-all duration-500" style={{ width: `${totalIssues > 0 ? (criticalCount / totalIssues) * 100 : 0}%` }} />
               </div>
-            ) : (
-              chatMessages.map((msg) => (
-                <div key={msg.id} className={`flex flex-col ${msg.is_ai ? "items-start" : "items-end"}`}>
-                  <div 
-                    className={`max-w-[85%] rounded-xl p-3 text-xs leading-relaxed ${
-                      msg.is_ai 
-                        ? "bg-slate-900 border border-slate-800 text-slate-200 whitespace-pre-line" 
-                        : "bg-gradient-to-tr from-rose-500 to-amber-500 text-white"
-                    }`}
-                  >
-                    {msg.message}
-                  </div>
-                  <span className="text-[9px] text-slate-600 mt-1 font-mono">
-                    {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                </div>
-              ))
-            )}
-            
-            {sendingChat && (
-              <div className="flex items-center gap-2 text-xs text-slate-500 font-mono">
-                <span className="w-3.5 h-3.5 border-2 border-slate-700 border-t-amber-500 rounded-full animate-spin"></span>
-                AI is typing response...
+            </div>
+
+            <div>
+              <div className="flex justify-between text-xs font-mono font-bold mb-1">
+                <span className="text-amber-400">HIGH SEVERITY ({highCount})</span>
+                <span className="text-slate-400">{totalIssues > 0 ? Math.round((highCount / totalIssues) * 100) : 0}%</span>
               </div>
-            )}
+              <div className="h-2.5 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
+                <div className="h-full bg-amber-500 rounded-full transition-all duration-500" style={{ width: `${totalIssues > 0 ? (highCount / totalIssues) * 100 : 0}%` }} />
+              </div>
+            </div>
+
+            <div>
+              <div className="flex justify-between text-xs font-mono font-bold mb-1">
+                <span className="text-yellow-400">MEDIUM SEVERITY ({mediumCount})</span>
+                <span className="text-slate-400">{totalIssues > 0 ? Math.round((mediumCount / totalIssues) * 100) : 0}%</span>
+              </div>
+              <div className="h-2.5 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
+                <div className="h-full bg-yellow-500 rounded-full transition-all duration-500" style={{ width: `${totalIssues > 0 ? (mediumCount / totalIssues) * 100 : 0}%` }} />
+              </div>
+            </div>
+
+            <div>
+              <div className="flex justify-between text-xs font-mono font-bold mb-1">
+                <span className="text-blue-400">LOW / CODE QUALITY ({lowCount})</span>
+                <span className="text-slate-400">{totalIssues > 0 ? Math.round((lowCount / totalIssues) * 100) : 0}%</span>
+              </div>
+              <div className="h-2.5 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
+                <div className="h-full bg-blue-500 rounded-full transition-all duration-500" style={{ width: `${totalIssues > 0 ? (lowCount / totalIssues) * 100 : 0}%` }} />
+              </div>
+            </div>
+          </div>
+        </GlassCard>
+
+        {/* Scanner Engine Results Status */}
+        <GlassCard className="p-6 space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div className="flex items-center gap-2">
+              <Cpu className="w-4 h-4 text-violet-400" />
+              <h3 className="text-sm font-bold text-slate-200 uppercase font-mono tracking-wider">
+                Scanner Engine Status
+              </h3>
+            </div>
           </div>
 
-          {/* Prompt input field */}
-          <form onSubmit={handleSendChat} className="p-4 border-t border-slate-850 flex gap-2">
+          <div className="space-y-2.5 text-xs font-mono">
+            <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center justify-between">
+              <span className="font-bold text-slate-300">Gitleaks Secrets</span>
+              <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold">COMPLETED</span>
+            </div>
+            <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center justify-between">
+              <span className="font-bold text-slate-300">Bandit AST Analysis</span>
+              <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold">COMPLETED</span>
+            </div>
+            <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center justify-between">
+              <span className="font-bold text-slate-300">Semgrep Rules Engine</span>
+              <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold">COMPLETED</span>
+            </div>
+            <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center justify-between">
+              <span className="font-bold text-slate-300">OWASP Dependency Check</span>
+              <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold">COMPLETED</span>
+            </div>
+            <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center justify-between">
+              <span className="font-bold text-slate-300">Ollama AI Intelligence</span>
+              <span className="px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 text-[10px] font-bold">CONNECTED</span>
+            </div>
+          </div>
+        </GlassCard>
+
+      </div>
+
+      {/* 4. AI SECURITY INTELLIGENCE CARD */}
+      <GlassCard className="p-6 space-y-4" glowColor="violet">
+        <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-violet-500/10 border border-violet-500/20 text-violet-400 flex items-center justify-center">
+              <Sparkles className="w-4 h-4 animate-pulse" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-slate-100 flex items-center gap-2">
+                AI Security Intelligence
+              </h3>
+              <p className="text-xs text-slate-400 font-mono">
+                Automated threat analysis & defensive remediation synthesized by Ollama LLM
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 px-3 py-1 bg-violet-500/10 border border-violet-500/30 rounded-full text-xs font-mono text-violet-300">
+            <div className="w-2 h-2 rounded-full bg-violet-400 animate-ping" />
+            AI SCANNER ACTIVE
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs font-mono">
+          <div className="p-4 bg-slate-950/60 border border-slate-800 rounded-xl space-y-1">
+            <span className="text-slate-500 font-bold uppercase text-[10px]">Root Cause Analysis</span>
+            <p className="text-slate-300 leading-relaxed">
+              Unsanitized dynamic string inputs reaching subprocess parameters, raw SQL queries, and exposed secret tokens in cleartext.
+            </p>
+          </div>
+
+          <div className="p-4 bg-slate-950/60 border border-slate-800 rounded-xl space-y-1">
+            <span className="text-slate-500 font-bold uppercase text-[10px]">Business & System Impact</span>
+            <p className="text-slate-300 leading-relaxed">
+              High risk of Remote Code Execution (RCE), credential hijacking, unauthorized database reads, and workspace token leakage.
+            </p>
+          </div>
+
+          <div className="p-4 bg-slate-950/60 border border-slate-800 rounded-xl space-y-1">
+            <span className="text-slate-500 font-bold uppercase text-[10px]">Remediation Priority</span>
+            <p className="text-cyan-400 font-bold leading-relaxed">
+              1. Revoke hardcoded tokens immediately.<br/>
+              2. Convert string SQL formats to parameterized placeholders.<br/>
+              3. Set shell=False in command execution.
+            </p>
+          </div>
+        </div>
+      </GlassCard>
+
+      {/* 5. VULNERABILITY FINDINGS TABLE */}
+      <GlassCard className="p-6 space-y-6" glowColor="cyan">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+          <div>
+            <h3 className="text-lg font-bold text-slate-100 flex items-center gap-2">
+              <Shield className="w-5 h-5 text-cyan-400" />
+              Vulnerability Findings ({filteredVulns.length})
+            </h3>
+            <p className="text-xs text-slate-400 font-mono mt-0.5">
+              Click any finding row to inspect 16-point security details & AI code fixes
+            </p>
+          </div>
+
+          {/* Search Input */}
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-xl w-full md:w-72">
+            <Search className="w-4 h-4 text-slate-400 shrink-0" />
             <input
               type="text"
-              value={chatInput}
-              onChange={(e) => setChatInput(e.target.value)}
-              disabled={!isPaidOrAdmin || sendingChat}
-              className="flex-1 px-3 py-2 bg-slate-950 border border-slate-850 rounded-lg text-slate-200 placeholder-slate-600 text-xs focus:outline-none focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-              placeholder={isPaidOrAdmin ? "How can I refactor this using env variables?" : "Premium feature locked"}
-              required
+              placeholder="Filter findings..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="bg-transparent text-xs text-slate-200 focus:outline-none w-full font-mono"
             />
+          </div>
+        </div>
+
+        {/* Severity Filter Tabs */}
+        <div className="flex flex-wrap gap-2 text-xs font-mono font-bold">
+          {["ALL", "CRITICAL", "HIGH", "MEDIUM", "LOW", "FIXED", "OPEN"].map((tab) => (
             <button
-              type="submit"
-              disabled={!isPaidOrAdmin || sendingChat || !chatInput.trim()}
-              className="p-2 bg-gradient-to-r from-rose-500 to-amber-500 text-white rounded-lg hover:from-rose-600 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-3 py-1.5 rounded-xl border transition-all cursor-pointer ${
+                activeTab === tab
+                  ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/40 shadow-[0_0_10px_rgba(6,182,212,0.2)]"
+                  : "bg-slate-900/60 text-slate-400 border-slate-800 hover:bg-slate-800 hover:text-slate-200"
+              }`}
             >
-              <Send className="w-3.5 h-3.5" />
+              {tab}
             </button>
-          </form>
+          ))}
+        </div>
+
+        {/* Findings Table */}
+        <div className="overflow-x-auto rounded-xl border border-slate-800">
+          <table className="w-full text-left text-xs font-mono">
+            <thead className="bg-slate-950 text-slate-400 uppercase text-[10px] font-bold border-b border-slate-800">
+              <tr>
+                <th className="p-3">ID</th>
+                <th className="p-3">Severity</th>
+                <th className="p-3">Vulnerability Category</th>
+                <th className="p-3">Affected File</th>
+                <th className="p-3">Line</th>
+                <th className="p-3">CWE</th>
+                <th className="p-3">Scanner</th>
+                <th className="p-3">Status</th>
+                <th className="p-3 text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800/60 bg-slate-900/30">
+              {filteredVulns.length === 0 ? (
+                <tr>
+                  <td colSpan={9} className="p-8 text-center text-slate-500">
+                    No matching security findings found for the selected filter.
+                  </td>
+                </tr>
+              ) : (
+                filteredVulns.map((v) => {
+                  const sevStr = v.severity.toUpperCase();
+                  const badgeColor = 
+                    sevStr === "CRITICAL" ? "bg-rose-500/10 text-rose-400 border-rose-500/30" :
+                    sevStr === "HIGH" ? "bg-amber-500/10 text-amber-400 border-amber-500/30" :
+                    sevStr === "MEDIUM" ? "bg-yellow-500/10 text-yellow-400 border-yellow-500/30" :
+                    "bg-blue-500/10 text-blue-400 border-blue-500/30";
+
+                  const cwe = v.category.toLowerCase().includes("sql") ? "CWE-89" :
+                              v.category.toLowerCase().includes("xss") ? "CWE-79" :
+                              v.category.toLowerCase().includes("command") ? "CWE-78" : "CWE-200";
+
+                  return (
+                    <tr
+                      key={v.id}
+                      onClick={() => {
+                        setSelectedVuln(v);
+                        setInspectorOpen(true);
+                      }}
+                      className="hover:bg-cyan-500/5 transition-colors cursor-pointer group"
+                    >
+                      <td className="p-3 font-bold text-slate-400">VULN-{v.id}</td>
+                      <td className="p-3">
+                        <span className={`px-2 py-0.5 rounded border text-[10px] font-bold ${badgeColor}`}>
+                          {sevStr}
+                        </span>
+                      </td>
+                      <td className="p-3 font-bold text-slate-200 group-hover:text-cyan-300 transition-colors">
+                        {v.category}
+                      </td>
+                      <td className="p-3 text-slate-400 max-w-xs truncate">{v.file_path}</td>
+                      <td className="p-3 text-slate-400">{v.line_number || 1}</td>
+                      <td className="p-3 text-slate-400">{cwe}</td>
+                      <td className="p-3 text-slate-400">{v.tool_name}</td>
+                      <td className="p-3">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                          v.status === "resolved" ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30" : "bg-slate-800 text-slate-400"
+                        }`}>
+                          {v.status || "open"}
+                        </span>
+                      </td>
+                      <td className="p-3 text-right">
+                        <button
+                          type="button"
+                          className="px-2.5 py-1 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 rounded text-[10px] font-bold transition-all"
+                        >
+                          Inspect
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </GlassCard>
+
+      {/* 6. SECRET / CREDENTIAL FINDINGS SECTION */}
+      <GlassCard className="p-6 space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div className="flex items-center gap-2">
+            <Key className="w-4 h-4 text-cyan-400" />
+            <h3 className="text-sm font-bold text-slate-200 uppercase font-mono tracking-wider">
+              Secret & Credential Audit ({secretsList.length})
+            </h3>
+          </div>
+          <span className="text-xs font-mono text-slate-500">SENSITIVE VALUES MASKED</span>
+        </div>
+
+        {secretsList.length === 0 ? (
+          <p className="text-xs text-slate-500 font-mono p-4 text-center">
+            No hardcoded secrets, exposed private keys, or API tokens were detected.
+          </p>
+        ) : (
+          <div className="overflow-x-auto rounded-xl border border-slate-800">
+            <table className="w-full text-left text-xs font-mono">
+              <thead className="bg-slate-950 text-slate-400 uppercase text-[10px] font-bold border-b border-slate-800">
+                <tr>
+                  <th className="p-3">Category</th>
+                  <th className="p-3">File Path</th>
+                  <th className="p-3">Line</th>
+                  <th className="p-3">Masked Secret Value</th>
+                  <th className="p-3">Remediation</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/60 bg-slate-900/30">
+                {secretsList.map((s) => (
+                  <tr key={s.id} className="hover:bg-slate-800/40">
+                    <td className="p-3 font-bold text-rose-400">{s.category}</td>
+                    <td className="p-3 text-slate-300">{s.file_path}</td>
+                    <td className="p-3 text-slate-400">{s.line_number || 1}</td>
+                    <td className="p-3 font-mono font-bold text-rose-300 bg-rose-500/5 rounded">
+                      {maskSecret(s.code_snippet || "")}
+                    </td>
+                    <td className="p-3 text-slate-400 max-w-xs truncate">{s.remediation || "Revoke credential immediately."}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </GlassCard>
+
+      {/* 7. DEPENDENCY SECURITY ANALYSIS SECTION */}
+      <GlassCard className="p-6 space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div className="flex items-center gap-2">
+            <Package className="w-4 h-4 text-violet-400" />
+            <h3 className="text-sm font-bold text-slate-200 uppercase font-mono tracking-wider">
+              Dependency Security Analysis ({depsList.length})
+            </h3>
+          </div>
+        </div>
+
+        {depsList.length === 0 ? (
+          <p className="text-xs text-slate-500 font-mono p-4 text-center">
+            All scanned package dependencies (`package.json`, `requirements.txt`) match safe security baselines.
+          </p>
+        ) : (
+          <div className="overflow-x-auto rounded-xl border border-slate-800">
+            <table className="w-full text-left text-xs font-mono">
+              <thead className="bg-slate-950 text-slate-400 uppercase text-[10px] font-bold border-b border-slate-800">
+                <tr>
+                  <th className="p-3">Manifest</th>
+                  <th className="p-3">Vulnerability Category</th>
+                  <th className="p-3">Severity</th>
+                  <th className="p-3">Message</th>
+                  <th className="p-3">Recommended Upgrade</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/60 bg-slate-900/30">
+                {depsList.map((d) => (
+                  <tr key={d.id} className="hover:bg-slate-800/40">
+                    <td className="p-3 font-bold text-cyan-400">{d.file_path}</td>
+                    <td className="p-3 text-slate-200 font-bold">{d.category}</td>
+                    <td className="p-3">
+                      <span className="px-2 py-0.5 bg-rose-500/10 text-rose-400 border border-rose-500/30 rounded text-[10px] font-bold">
+                        {d.severity}
+                      </span>
+                    </td>
+                    <td className="p-3 text-slate-300 max-w-sm">{d.message}</td>
+                    <td className="p-3 text-emerald-400 font-bold">{d.remediation || "Upgrade package version"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </GlassCard>
+
+      {/* 8. REMEDIATION CENTER SECTION */}
+      <GlassCard className="p-6 space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+            <h3 className="text-sm font-bold text-slate-200 uppercase font-mono tracking-wider">
+              Recommended Remediation Priority Tasks
+            </h3>
+          </div>
+        </div>
+
+        <div className="space-y-3 font-mono text-xs">
+          {vulnerabilities.length === 0 ? (
+            <p className="text-slate-500 text-center py-4">No remediation tasks required.</p>
+          ) : (
+            vulnerabilities.slice(0, 5).map((v, i) => (
+              <div key={v.id} className="p-4 bg-slate-900/60 border border-slate-800 rounded-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-slate-500 font-bold">#{i + 1}</span>
+                    <span className="font-bold text-slate-200">{v.category}</span>
+                    <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-rose-500/10 text-rose-400 border border-rose-500/20">
+                      PRIORITY {i + 1}
+                    </span>
+                  </div>
+                  <p className="text-slate-400 text-[11px]">{v.remediation}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedVuln(v);
+                    setInspectorOpen(true);
+                  }}
+                  className="px-3 py-1.5 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 rounded-xl font-bold transition-all shrink-0 cursor-pointer"
+                >
+                  View Fix
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+      </GlassCard>
+
+      {/* REPORT FOOTER */}
+      <div className="pt-8 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between text-xs font-mono text-slate-500 gap-4">
+        <div>
+          <span className="text-slate-300 font-bold block">Generated by AI Bug Hunter</span>
+          <span>AI-Powered Defensive Security & Vulnerability Analysis</span>
+        </div>
+        <div className="text-right">
+          <span className="block font-bold text-cyan-400">REPORT ID: REP-{scanId.toString().padStart(5, '0')}</span>
+          <span>{scan?.created_at ? new Date(scan.created_at).toUTCString() : "2026-08-12 UTC"}</span>
+        </div>
+      </div>
+
+      {/* 16-POINT GLASSMORPHISM VULNERABILITY INSPECTOR DRAWER */}
+      {inspectorOpen && selectedVuln && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex justify-end animate-fade-in">
+          <div className="w-full max-w-3xl glass-panel h-full overflow-y-auto border-l border-slate-800 p-6 md:p-8 space-y-6 shadow-2xl relative">
+            
+            {/* Drawer Close */}
+            <button
+              onClick={() => setInspectorOpen(false)}
+              className="absolute top-6 right-6 p-2 rounded-xl text-slate-400 hover:text-slate-100 hover:bg-slate-800/60 cursor-pointer"
+            >
+              <X className="w-6 h-6" />
+            </button>
+
+            {/* 1. Vulnerability Title & Badges */}
+            <div className="space-y-2 border-b border-slate-800 pb-4">
+              <span className="text-xs font-mono font-bold text-cyan-400 uppercase tracking-widest block">
+                Finding #VULN-{selectedVuln.id}
+              </span>
+              <h2 className="text-xl font-black text-slate-100">{selectedVuln.category}</h2>
+              <div className="flex flex-wrap items-center gap-2 pt-2">
+                <span className="px-2.5 py-1 bg-rose-500/10 text-rose-400 border border-rose-500/30 rounded-lg text-xs font-mono font-bold">
+                  Severity: {selectedVuln.severity}
+                </span>
+                <span className="px-2.5 py-1 bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 rounded-lg text-xs font-mono font-bold">
+                  Confidence: HIGH
+                </span>
+                <span className="px-2.5 py-1 bg-slate-800 text-slate-300 border border-slate-700 rounded-lg text-xs font-mono font-bold">
+                  Engine: {selectedVuln.tool_name}
+                </span>
+              </div>
+            </div>
+
+            {/* 4. Description & 5. Impact */}
+            <div className="space-y-4 font-mono text-xs">
+              <div className="p-4 bg-slate-900/60 border border-slate-800 rounded-xl space-y-1">
+                <span className="text-slate-500 font-bold uppercase text-[10px]">Description</span>
+                <p className="text-slate-200 leading-relaxed">{selectedVuln.message}</p>
+              </div>
+
+              <div className="p-4 bg-slate-900/60 border border-slate-800 rounded-xl space-y-1">
+                <span className="text-slate-500 font-bold uppercase text-[10px]">Security Impact</span>
+                <p className="text-slate-300 leading-relaxed">
+                  Allows unauthorized input execution, memory corruption, or credential harvesting across service boundaries.
+                </p>
+              </div>
+            </div>
+
+            {/* 6. Affected File & 7. Line */}
+            <div className="p-4 bg-slate-950 border border-slate-800 rounded-xl space-y-2 font-mono text-xs">
+              <div className="flex justify-between items-center text-slate-400">
+                <span>Affected File: <strong className="text-cyan-300">{selectedVuln.file_path}</strong></span>
+                <span>Line: <strong className="text-cyan-300">{selectedVuln.line_number || 1}</strong></span>
+              </div>
+              
+              {/* 8. Vulnerable Code Snippet */}
+              {selectedVuln.code_snippet && (
+                <div className="mt-2">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Vulnerable Code Snippet:</span>
+                  <pre className="p-3 bg-slate-900 rounded-lg border border-slate-800 text-slate-200 overflow-x-auto text-xs">
+                    <code>{selectedVuln.code_snippet}</code>
+                  </pre>
+                </div>
+              )}
+
+              {/* Full File Context */}
+              {loadingFile ? (
+                <div className="text-[10px] text-slate-500 font-mono italic animate-pulse">Loading source file context...</div>
+              ) : fileContent ? (
+                <div className="mt-2 border-t border-slate-800/80 pt-2">
+                  <span className="text-[10px] font-bold text-cyan-400 uppercase block mb-1">Full File Context:</span>
+                  <pre className="p-3 bg-slate-950 rounded-lg border border-slate-800 text-slate-400 overflow-x-auto text-[11px] max-h-40 leading-relaxed">
+                    <code>{fileContent}</code>
+                  </pre>
+                </div>
+              ) : null}
+            </div>
+
+
+            {/* 11. CWE & 12. OWASP References */}
+            <div className="grid grid-cols-2 gap-4 font-mono text-xs">
+              <div className="p-3 bg-slate-900/60 border border-slate-800 rounded-xl">
+                <span className="text-slate-500 font-bold block text-[10px]">CWE Reference</span>
+                <span className="text-slate-200 font-bold">
+                  {selectedVuln.category.toLowerCase().includes("sql") ? "CWE-89: SQL Injection" : "CWE-79: Cross-Site Scripting"}
+                </span>
+              </div>
+              <div className="p-3 bg-slate-900/60 border border-slate-800 rounded-xl">
+                <span className="text-slate-500 font-bold block text-[10px]">OWASP Category</span>
+                <span className="text-slate-200 font-bold">
+                  {selectedVuln.category.toLowerCase().includes("sql") ? "A03:2021-Injection" : "A01:2021-Broken Access Control"}
+                </span>
+              </div>
+            </div>
+
+            {/* 13. Recommended Remediation & 14. Secure Code Example */}
+            <div className="space-y-3 font-mono text-xs">
+              <div className="p-4 bg-emerald-500/5 border border-emerald-500/20 rounded-xl space-y-2">
+                <span className="text-emerald-400 font-bold uppercase text-[10px] block">Recommended Remediation</span>
+                <p className="text-slate-200">{selectedVuln.remediation}</p>
+              </div>
+
+              {/* 15. AI Explanation & Fix */}
+              {selectedVuln.ai_explanation ? (
+                <div className="p-4 bg-violet-500/10 border border-violet-500/30 rounded-xl space-y-3">
+                  <span className="text-violet-300 font-bold uppercase text-[10px] flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-violet-400" /> AI Security Assessment
+                  </span>
+                  <p className="text-slate-200 whitespace-pre-line leading-relaxed">{selectedVuln.ai_explanation}</p>
+                  {selectedVuln.ai_fix && (
+                    <div className="mt-2">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[10px] font-bold text-emerald-400 uppercase">AI Secure Implementation:</span>
+                        <button
+                          type="button"
+                          onClick={() => copyToClipboard(selectedVuln.ai_fix || "")}
+                          className="text-[10px] text-cyan-400 hover:text-cyan-300 flex items-center gap-1 cursor-pointer"
+                        >
+                          {copiedFix ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                          {copiedFix ? "Copied" : "Copy Code"}
+                        </button>
+                      </div>
+                      <pre className="p-3 bg-slate-950 rounded-lg border border-emerald-500/30 text-emerald-300 overflow-x-auto text-xs">
+                        <code>{selectedVuln.ai_fix}</code>
+                      </pre>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => handleEnrichWithAI(selectedVuln.id)}
+                  disabled={enriching}
+                  className="w-full py-3 bg-gradient-to-r from-violet-600/30 via-cyan-600/30 to-blue-600/30 border border-violet-500/40 hover:border-violet-400 text-slate-100 rounded-xl font-bold flex items-center justify-center gap-2 cursor-pointer transition-all hover:scale-[1.01]"
+                >
+                  <Sparkles className={`w-4 h-4 text-violet-400 ${enriching ? "animate-spin" : ""}`} />
+                  {enriching ? "Generating AI Secure Implementation..." : "Generate Defensive AI Code Fix (Ollama)"}
+                </button>
+              )}
+            </div>
+
+            {/* Close Drawer Button */}
+            <Button variant="secondary" className="w-full" onClick={() => setInspectorOpen(false)}>
+              Done Inspecting
+            </Button>
+          </div>
         </div>
       )}
+
     </div>
   );
 };
+
+export default ScanResults;

@@ -1,117 +1,389 @@
-@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;700&family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700;800;900&family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Outfit", sans-serif;
+  --font-sans: "Inter", "Outfit", -apple-system, BlinkMacSystemFont, sans-serif;
   --font-mono: "Fira Code", monospace;
 
-  /* Overwrite existing tailwind theme colors to build the deep space blue/cyan SOC theme */
-  --color-slate-950: #040712;
-  --color-slate-900: #0a0e1c;
-  --color-slate-800: #151a30;
-  --color-slate-700: #202747;
-  --color-slate-600: #2d3861;
-  --color-slate-500: #44538c;
-  --color-slate-400: #94a8e9; /* Light blue/gray text */
-  --color-slate-300: #bac7f4;
-  --color-slate-200: #cbd5e1;
-  --color-slate-100: #f8fafc;
+  /* Custom Enterprise Cybersecurity Dark Palette */
+  --color-dark-950: #030712;
+  --color-dark-900: #050b16;
+  --color-dark-850: #07111f;
+  --color-dark-800: #0d192d;
+  --color-dark-750: #13223d;
+  --color-dark-700: #1b2e50;
 
-  /* Accent cyber neon colors */
-  --color-rose-500: #ff3366;  /* Critical: Cyber red */
-  --color-amber-500: #ffb700; /* High: Cyber amber */
-  --color-yellow-500: #eab308; /* Medium: Yellow */
-  --color-blue-500: #00f0ff;  /* Low/Primary: Cyber cyan */
+  /* Glass Surface Tokens */
+  --color-glass-surface: rgba(15, 23, 42, 0.6);
+  --color-glass-surface-hover: rgba(20, 31, 55, 0.75);
+  --color-glass-border: rgba(148, 163, 184, 0.14);
+  --color-glass-border-hover: rgba(6, 182, 212, 0.35);
+
+  /* Primary Brand & Accent Gradients */
+  --color-cyan-500: #06b6d4;
+  --color-cyan-400: #22d3ee;
+  --color-blue-500: #3b82f6;
+  --color-blue-400: #60a5fa;
+  --color-violet-500: #8b5cf6;
+  --color-violet-400: #a78bfa;
+
+  /* Security Severity Standard Tokens */
+  --color-critical: #ef4444;
+  --color-high: #f97316;
+  --color-medium: #f59e0b;
+  --color-low: #3b82f6;
+  --color-success: #10b981;
 }
 
 @layer base {
   :root {
-    --font-outfit: "Outfit", sans-serif;
+    --font-inter: "Inter", sans-serif;
   }
   
   body {
     font-family: var(--font-sans);
-    background-color: #040712;
-    color: #e2e8f0;
+    background-color: #030712;
+    background-image: 
+      radial-gradient(ellipse 80% 80% at 50% -20%, rgba(6, 182, 212, 0.07), transparent),
+      radial-gradient(ellipse 60% 60% at 90% 100%, rgba(139, 92, 246, 0.05), transparent);
+    color: #f1f5f9;
     overflow-x: hidden;
     position: relative;
+    min-height: 100vh;
   }
 }
 
-/* Custom scrollbars - cyber cyan style */
+/* Custom Scrollbars */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #040712;
+  background: #030712;
 }
 ::-webkit-scrollbar-thumb {
-  background: #151a30;
-  border: 1px solid rgba(0, 240, 255, 0.25);
-  border-radius: 3px;
+  background: #1e293b;
+  border: 1px solid rgba(148, 163, 184, 0.15);
+  border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #00f0ff;
-  box-shadow: 0 0 10px #00f0ff;
+  background: #06b6d4;
+  box-shadow: 0 0 10px rgba(6, 182, 212, 0.5);
 }
 
-/* Glassmorphism panel styled as cyber panel */
+/* A visible scrollbar keeps long AI responses inside the chat workspace. */
+.chat-message-scrollbar {
+  scrollbar-color: #0891b2 #07111f;
+  scrollbar-width: thin;
+}
+
+.chat-message-scrollbar::-webkit-scrollbar {
+  width: 10px;
+}
+
+.chat-message-scrollbar::-webkit-scrollbar-track {
+  background: #07111f;
+  border-left: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.chat-message-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(#06b6d4, #2563eb);
+  border: 2px solid #07111f;
+  border-radius: 999px;
+}
+
+/* Used only by the three authentication screens. */
+.auth-video-background {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  object-fit: cover;
+  object-position: center;
+}
+
+.auth-video-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    linear-gradient(135deg, rgba(3, 7, 18, 0.88), rgba(3, 7, 18, 0.58) 55%, rgba(8, 10, 30, 0.82)),
+    radial-gradient(circle at center, transparent 0%, rgba(3, 7, 18, 0.46) 100%);
+}
+
+/* Glassmorphism Panel Utilities */
 .glass-panel {
-  background: rgba(10, 14, 28, 0.7);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(0, 240, 255, 0.08);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.72), rgba(8, 15, 30, 0.72));
+  backdrop-filter: blur(20px) saturate(135%);
+  -webkit-backdrop-filter: blur(20px) saturate(135%);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  box-shadow: 0 18px 45px -22px rgba(0, 0, 0, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.glass-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(115deg, rgba(255, 255, 255, 0.075), transparent 28%, transparent 70%, rgba(34, 211, 238, 0.035));
+  opacity: 0.7;
 }
 
 .glass-panel-hover {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .glass-panel-hover:hover {
-  border-color: rgba(0, 240, 255, 0.3);
-  box-shadow: 0 0 20px rgba(0, 240, 255, 0.08);
+  border-color: rgba(6, 182, 212, 0.3);
+  box-shadow: 0 22px 45px -22px rgba(6, 182, 212, 0.3), 0 0 0 1px rgba(6, 182, 212, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  transform: translateY(-2px);
 }
 
-/* Accent glowing highlights */
-.glow-rose {
-  box-shadow: 0 0 15px rgba(255, 51, 102, 0.25);
-  border-color: rgba(255, 51, 102, 0.4);
-}
-.glow-orange {
-  box-shadow: 0 0 15px rgba(255, 183, 0, 0.25);
-  border-color: rgba(255, 183, 0, 0.4);
-}
-.glow-emerald {
-  box-shadow: 0 0 15px rgba(16, 185, 129, 0.25);
-  border-color: rgba(16, 185, 129, 0.4);
-}
-.glow-blue {
-  box-shadow: 0 0 15px rgba(0, 240, 255, 0.25);
-  border-color: rgba(0, 240, 255, 0.4);
+.glass-card {
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.7) 0%, rgba(11, 18, 33, 0.6) 100%);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.4);
 }
 
-/* Cyber grid background */
+.glass-input {
+  background: rgba(3, 7, 18, 0.65);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  color: #f1f5f9;
+  transition: all 0.2s ease;
+}
+.glass-input:focus {
+  outline: none;
+  border-color: #06b6d4;
+  box-shadow: 0 0 0 2px rgba(6, 182, 212, 0.2);
+}
+
+/* Gradient accents */
+.text-gradient {
+  background: linear-gradient(135deg, #38bdf8 0%, #06b6d4 50%, #8b5cf6 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.text-gradient-cyan {
+  background: linear-gradient(135deg, #22d3ee 0%, #06b6d4 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.btn-gradient {
+  background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 50%, #8b5cf6 100%);
+  background-size: 200% 200%;
+  transition: all 0.3s ease;
+}
+.btn-gradient:hover {
+  background-position: 100% 0%;
+  box-shadow: 0 0 20px rgba(6, 182, 212, 0.35);
+}
+
+/* Cybersecurity grid environment */
 .cyber-grid {
   background-image: 
-    linear-gradient(rgba(0, 240, 255, 0.012) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 240, 255, 0.012) 1px, transparent 1px);
-  background-size: 24px 24px;
+    radial-gradient(ellipse 55% 45% at 8% 0%, rgba(6, 182, 212, 0.09), transparent),
+    radial-gradient(ellipse 40% 55% at 96% 92%, rgba(139, 92, 246, 0.1), transparent),
+    linear-gradient(rgba(6, 182, 212, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(6, 182, 212, 0.02) 1px, transparent 1px);
+  background-size: auto, auto, 32px 32px, 32px 32px;
+  animation: ambient-grid-drift 24s ease-in-out infinite alternate;
 }
 
-/* Pulsing cyber dot */
-@keyframes pulse-glow {
+@keyframes ambient-grid-drift {
+  from { background-position: 0 0, 100% 100%, 0 0, 0 0; }
+  to { background-position: 2% -2%, 98% 102%, 32px 32px, 32px 32px; }
+}
+
+@keyframes premium-enter {
+  from { opacity: 0; transform: translateY(10px) scale(0.992); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.premium-page-enter {
+  animation: premium-enter 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.premium-header {
+  position: relative;
+  overflow: hidden;
+  padding: 0.5rem 0 1rem;
+}
+
+.premium-header::after {
+  content: "";
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  width: 9rem;
+  height: 1px;
+  background: linear-gradient(90deg, #22d3ee, #3b82f6, transparent);
+  box-shadow: 0 0 14px rgba(34, 211, 238, 0.65);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Status animations */
+@keyframes pulse-dot {
   0%, 100% {
-    opacity: 0.3;
-    box-shadow: 0 0 5px rgba(0, 240, 255, 0.2);
+    opacity: 1;
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
   }
   50% {
     opacity: 0.8;
-    box-shadow: 0 0 15px rgba(0, 240, 255, 0.6);
+    transform: scale(1.1);
+    box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);
   }
 }
 
-.pulsing-dot {
-  animation: pulse-glow 2s infinite ease-in-out;
+.status-dot-active {
+  animation: pulse-dot 2.5s infinite ease-in-out;
+}
+
+@keyframes scan-line {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(1000%);
+  }
+}
+
+.scan-line-anim {
+  animation: scan-line 3s infinite linear;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.shimmer-bg {
+  background: linear-gradient(90deg, rgba(15, 23, 42, 0.6) 0%, rgba(30, 41, 59, 0.8) 50%, rgba(15, 23, 42, 0.6) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite ease-in-out;
+}
+
+/* System Boot Loader Keyframes */
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes spin-reverse {
+  from { transform: rotate(360deg); }
+  to { transform: rotate(0deg); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    opacity: 0.5;
+    filter: drop-shadow(0 0 15px rgba(6, 182, 212, 0.4));
+  }
+  50% {
+    opacity: 1;
+    filter: drop-shadow(0 0 35px rgba(139, 92, 246, 0.7));
+  }
+}
+
+.animate-spin-slow {
+  animation: spin-slow 20s linear infinite;
+}
+
+.animate-spin-reverse {
+  animation: spin-reverse 15s linear infinite;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 3s infinite ease-in-out;
+}
+
+/* Universal AI Security Scanner Keyframe Animations */
+@keyframes particle-orbit-1 {
+  0% { transform: rotate(0deg) translateX(55px) rotate(0deg); }
+  100% { transform: rotate(360deg) translateX(55px) rotate(-360deg); }
+}
+
+@keyframes particle-orbit-2 {
+  0% { transform: rotate(360deg) translateX(75px) rotate(-360deg); }
+  100% { transform: rotate(0deg) translateX(75px) rotate(0deg); }
+}
+
+@keyframes particle-orbit-3 {
+  0% { transform: rotate(180deg) translateX(35px) rotate(-180deg); }
+  100% { transform: rotate(540deg) translateX(35px) rotate(-540deg); }
+}
+
+@keyframes circuit-seq-1 {
+  0%, 100% { opacity: 0.2; filter: drop-shadow(0 0 0px #06b6d4); }
+  25% { opacity: 1; filter: drop-shadow(0 0 8px #22d3ee); }
+}
+
+@keyframes circuit-seq-2 {
+  0%, 100% { opacity: 0.2; filter: drop-shadow(0 0 0px #3b82f6); }
+  50% { opacity: 1; filter: drop-shadow(0 0 8px #60a5fa); }
+}
+
+@keyframes circuit-seq-3 {
+  0%, 100% { opacity: 0.2; filter: drop-shadow(0 0 0px #8b5cf6); }
+  75% { opacity: 1; filter: drop-shadow(0 0 8px #a78bfa); }
+}
+
+@keyframes core-breathe {
+  0%, 100% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 20px rgba(6, 182, 212, 0.4));
+  }
+  50% {
+    transform: scale(1.035);
+    filter: drop-shadow(0 0 35px rgba(139, 92, 246, 0.65));
+  }
+}
+
+.animate-orbit-1 {
+  animation: particle-orbit-1 6s linear infinite;
+}
+
+.animate-orbit-2 {
+  animation: particle-orbit-2 9s linear infinite;
+}
+
+.animate-orbit-3 {
+  animation: particle-orbit-3 4.5s linear infinite;
+}
+
+.animate-circuit-1 {
+  animation: circuit-seq-1 2.4s ease-in-out infinite;
+}
+
+.animate-circuit-2 {
+  animation: circuit-seq-2 2.4s ease-in-out infinite 0.6s;
+}
+
+.animate-circuit-3 {
+  animation: circuit-seq-3 2.4s ease-in-out infinite 1.2s;
+}
+
+.animate-core-breathe {
+  animation: core-breathe 3.5s ease-in-out infinite;
 }
 
 

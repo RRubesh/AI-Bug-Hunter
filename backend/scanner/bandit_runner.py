@@ -195,7 +195,7 @@ class BanditRunner:
                     "-r", str(target_path),
                     "--quiet"
                 ]
-                subprocess.run(cmd, capture_output=True, text=True)
+                subprocess.run(cmd, capture_output=True, text=True, timeout=60)
                 
                 if report_file.exists():
                     with open(report_file, "r") as f:
@@ -203,13 +203,18 @@ class BanditRunner:
                     
                     results = data.get("results", [])
                     for item in results:
+                        if not isinstance(item, dict):
+                            continue
+                        filename_val = item.get("filename") or ""
+                        rel_path = os.path.relpath(filename_val, target_dir).replace('\\', '/') if (filename_val and os.path.isabs(filename_val)) else (filename_val or "main.py")
+                        
                         findings.append({
-                            "file_path": os.path.relpath(item.get("filename"), target_dir).replace('\\', '/'),
-                            "line_number": item.get("line_number"),
-                            "code_snippet": item.get("code", "").strip(),
-                            "severity": item.get("issue_severity", "MEDIUM").upper(),
-                            "category": item.get("issue_text", "Python Security Issue"),
-                            "message": f"{item.get('test_id')}: {item.get('issue_text')}",
+                            "file_path": rel_path,
+                            "line_number": item.get("line_number") or 1,
+                            "code_snippet": str(item.get("code") or "").strip(),
+                            "severity": str(item.get("issue_severity") or "MEDIUM").upper(),
+                            "category": str(item.get("issue_text") or "Python Security Issue"),
+                            "message": f"{item.get('test_id', 'B000')}: {item.get('issue_text', 'Issue detected')}",
                             "tool_name": "Bandit",
                             "remediation": "Apply secure coding principles: avoid shell execution, parameterized inputs, and use secure crypto algorithms."
                         })
@@ -223,7 +228,14 @@ class BanditRunner:
             for file in files:
                 if file.endswith('.py'):
                     full_path = Path(root) / file
-                    relative_path = full_path.relative_to(target_path).as_posix()
+                    try:
+                        relative_path = full_path.relative_to(target_path).as_posix()
+                    except Exception:
+                        try:
+                            relative_path = os.path.relpath(str(full_path), str(target_path)).replace('\\', '/')
+                        except Exception:
+                            relative_path = file
+
                     
                     try:
                         with open(full_path, "r", encoding="utf-8", errors="ignore") as f:

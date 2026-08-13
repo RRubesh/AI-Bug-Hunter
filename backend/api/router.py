@@ -3,14 +3,15 @@ import shutil
 import uuid
 import subprocess
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status, BackgroundTasks
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from sqlalchemy.orm import Session
-from backend.database import get_db, SessionLocal
+from backend.database import get_db, SessionLocal, is_mongo_connected, get_mongo_db
+from backend.database.mongodb import mongo_manager
 from backend.models import Project, Scan, Vulnerability, User
 from backend.schemas import (
     ProjectResponse, ProjectCreate, ScanResponse, VulnerabilityResponse, 
-    VulnerabilityDetail, ScanStats, SeverityStats, AppSettings, UserResponse,
-    UserCreate, SettingsUpdate
+    VulnerabilityDetail, VulnerabilityUpdate, ScanStats, SeverityStats, 
+    DashboardSummary, AppSettings, UserResponse, UserCreate, SettingsUpdate
 )
 from backend.auth.jwt import get_current_user, get_current_admin, get_password_hash
 from backend.config import settings
@@ -246,6 +247,27 @@ def create_project(
     db.add(new_project)
     db.commit()
     db.refresh(new_project)
+
+    try:
+        from backend.database import get_mongo_db, is_mongo_connected
+        if is_mongo_connected():
+            mongo_db = get_mongo_db()
+            if mongo_db is not None:
+                mongo_db.projects.update_one(
+                    {"project_id": new_project.id},
+                    {"$set": {
+                        "project_id": new_project.id,
+                        "name": new_project.name,
+                        "description": new_project.description,
+                        "upload_type": new_project.upload_type,
+                        "owner_id": new_project.owner_id,
+                        "created_at": new_project.created_at
+                    }},
+                    upsert=True
+                )
+    except Exception:
+        pass
+
     return new_project
 
 @router.get("/projects", response_model=List[ProjectResponse])
@@ -253,6 +275,15 @@ def list_projects(current_user: User = Depends(get_current_user), db: Session = 
     if current_user.role == "admin":
         return db.query(Project).all()
     return db.query(Project).filter(Project.owner_id == current_user.id).all()
+
+@router.get("/projects/{project_id}", response_model=ProjectResponse)
+def get_project(project_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    if project.owner_id != current_user.id and current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized to access this project")
+    return project
 
 @router.delete("/projects/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_project(project_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -294,7 +325,7 @@ def trigger_scan(project_id: int, current_user: User = Depends(get_current_user)
     db.refresh(new_scan)
 
     # Launch scanning asynchronously (passing SessionLocal factory to avoid thread collisions)
-    start_background_scan(SessionLocal, new_scan.id, project.file_path)
+    start_background_scan(SessionLocal, new_scan.id, project.file_path or "")
 
     return new_scan
 
@@ -308,6 +339,16 @@ def get_project_scans(project_id: int, current_user: User = Depends(get_current_
 
     return db.query(Scan).filter(Scan.project_id == project_id).order_by(Scan.created_at.desc()).all()
 
+@router.get("/scans", response_model=List[ScanResponse])
+def list_scans(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if current_user.role == "admin":
+        return db.query(Scan).order_by(Scan.created_at.desc()).all()
+    user_projects = db.query(Project).filter(Project.owner_id == current_user.id).all()
+    project_ids = [p.id for p in user_projects]
+    if not project_ids:
+        return []
+    return db.query(Scan).filter(Scan.project_id.in_(project_ids)).order_by(Scan.created_at.desc()).all()
+
 @router.get("/scans/{scan_id}", response_model=ScanResponse)
 def get_scan(scan_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     scan = db.query(Scan).filter(Scan.id == scan_id).first()
@@ -317,6 +358,58 @@ def get_scan(scan_id: int, current_user: User = Depends(get_current_user), db: S
         raise HTTPException(status_code=403, detail="Not authorized to access this scan")
 
     return scan
+
+@router.post("/scans/{scan_id}/cancel", response_model=ScanResponse)
+def cancel_scan(scan_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    scan = db.query(Scan).filter(Scan.id == scan_id).first()
+    if not scan:
+        raise HTTPException(status_code=404, detail="Scan session not found")
+    if scan.project.owner_id != current_user.id and current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    scan.status = "cancelled"
+    db.commit()
+    db.refresh(scan)
+
+    try:
+        if is_mongo_connected():
+            mongo_db = get_mongo_db()
+            if mongo_db is not None:
+                mongo_db.scans.update_one({"scan_id": scan.id}, {"$set": {"status": "cancelled"}})
+    except Exception:
+        pass
+
+    mongo_manager.log_security_event(
+        event_type="scan_cancelled",
+        description=f"Scan #{scan.id} was cancelled by user.",
+        user_id=current_user.id
+    )
+
+    return scan
+
+@router.delete("/scans/{scan_id}")
+def delete_scan(scan_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    scan = db.query(Scan).filter(Scan.id == scan_id).first()
+    if not scan:
+        raise HTTPException(status_code=404, detail="Scan session not found")
+    if scan.project.owner_id != current_user.id and current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    db.delete(scan)
+    db.commit()
+
+    try:
+        if is_mongo_connected():
+            mongo_db = get_mongo_db()
+            if mongo_db is not None:
+                mongo_db.scans.delete_one({"scan_id": scan_id})
+                mongo_db.vulnerabilities.delete_many({"scan_id": scan_id})
+                mongo_db.scanner_results.delete_many({"scan_id": scan_id})
+                mongo_db.ai_analysis.delete_many({"scan_id": scan_id})
+    except Exception:
+        pass
+
+    return {"message": "Scan session deleted successfully"}
 
 # --- VULNERABILITIES LIST & FILES VIEW ---
 
@@ -330,6 +423,18 @@ def get_vulnerabilities(scan_id: int, current_user: User = Depends(get_current_u
 
     return db.query(Vulnerability).filter(Vulnerability.scan_id == scan_id).all()
 
+@router.get("/vulnerabilities", response_model=List[VulnerabilityResponse])
+def list_all_vulnerabilities(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if current_user.role == "admin":
+        return db.query(Vulnerability).all()
+    user_projects = db.query(Project).filter(Project.owner_id == current_user.id).all()
+    project_ids = [p.id for p in user_projects]
+    user_scans = db.query(Scan).filter(Scan.project_id.in_(project_ids)).all() if project_ids else []
+    scan_ids = [s.id for s in user_scans]
+    if not scan_ids:
+        return []
+    return db.query(Vulnerability).filter(Vulnerability.scan_id.in_(scan_ids)).all()
+
 @router.get("/vulnerabilities/{vuln_id}", response_model=VulnerabilityDetail)
 def get_vulnerability_detail(vuln_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     vuln = db.query(Vulnerability).filter(Vulnerability.id == vuln_id).first()
@@ -337,6 +442,45 @@ def get_vulnerability_detail(vuln_id: int, current_user: User = Depends(get_curr
         raise HTTPException(status_code=404, detail="Vulnerability not found")
     if vuln.scan.project.owner_id != current_user.id and current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Not authorized")
+
+    return vuln
+
+@router.patch("/vulnerabilities/{vuln_id}", response_model=VulnerabilityDetail)
+def update_vulnerability_status(
+    vuln_id: int,
+    vuln_update: VulnerabilityUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if vuln_update.status not in ("open", "resolved", "ignored", "false_positive"):
+        raise HTTPException(status_code=400, detail="Invalid status type. Must be open, resolved, ignored, or false_positive")
+
+    vuln = db.query(Vulnerability).filter(Vulnerability.id == vuln_id).first()
+    if not vuln:
+        raise HTTPException(status_code=404, detail="Vulnerability finding not found")
+    if vuln.scan.project.owner_id != current_user.id and current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    vuln.status = vuln_update.status
+    db.commit()
+    db.refresh(vuln)
+
+    try:
+        if is_mongo_connected():
+            mongo_db = get_mongo_db()
+            if mongo_db is not None:
+                mongo_db.vulnerabilities.update_one(
+                    {"vulnerability_id": vuln.id},
+                    {"$set": {"status": vuln.status}}
+                )
+    except Exception:
+        pass
+
+    mongo_manager.log_security_event(
+        event_type="vulnerability_status_updated",
+        description=f"Vulnerability #{vuln.id} status changed to {vuln.status}",
+        user_id=current_user.id
+    )
 
     return vuln
 
@@ -402,7 +546,11 @@ def download_report(scan_id: int, report_format: str, current_user: User = Depen
                 } for v in vulnerabilities
             ]
         }
-        return JSONResponse(content=data)
+        filename = f"AI_Bug_Hunter_Report_{project.name}_{scan_id}.json"
+        return JSONResponse(
+            content=data,
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+        )
 
     elif report_format == "pdf":
         pdf_path = settings.REPORT_DIR / f"report_{scan_id}.pdf"
@@ -414,19 +562,84 @@ def download_report(scan_id: int, report_format: str, current_user: User = Depen
             filename=f"AI_Bug_Hunter_Report_{project.name}_{scan_id}.pdf"
         )
 
-    elif report_format == "html":
-        html_path = settings.REPORT_DIR / f"report_{scan_id}.html"
-        generate_html_report(scan, project, vulnerabilities, html_path)
-        return FileResponse(
-            str(html_path),
-            media_type="text/html",
-            filename=f"AI_Bug_Hunter_Report_{project.name}_{scan_id}.html"
+    elif report_format == "csv":
+        import io
+        import csv
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow([
+            "Finding ID", "Severity", "Category", "File Path", "Line Number",
+            "Scanner Tool", "Message", "Remediation", "Status"
+        ])
+        for v in vulnerabilities:
+            writer.writerow([
+                f"VULN-{v.id}",
+                v.severity,
+                v.category,
+                v.file_path,
+                v.line_number or 1,
+                v.tool_name,
+                v.message,
+                v.remediation or "",
+                v.status or "open"
+            ])
+        filename = f"AI_Bug_Hunter_Report_{project.name}_{scan_id}.csv"
+        return Response(
+            content=output.getvalue(),
+            media_type="text/csv",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'}
         )
-        
+
     else:
-        raise HTTPException(status_code=400, detail="Invalid report format. Must be json, pdf, or html")
+        raise HTTPException(status_code=400, detail="Invalid report format. Must be json, pdf, html, or csv")
+
 
 # --- DASHBOARD & STATISTICS ---
+
+@router.get("/dashboard/summary", response_model=DashboardSummary)
+def get_dashboard_summary(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if current_user.role == "admin":
+        projects = db.query(Project).all()
+        scans = db.query(Scan).order_by(Scan.created_at.desc()).all()
+    else:
+        projects = db.query(Project).filter(Project.owner_id == current_user.id).all()
+        project_ids = [p.id for p in projects]
+        scans = db.query(Scan).filter(Scan.project_id.in_(project_ids)).order_by(Scan.created_at.desc()).all() if project_ids else []
+
+    total_scans = len(scans)
+    completed_scans = [s for s in scans if s.status == "completed"]
+    
+    critical_sum = sum((s.critical_count or 0) for s in completed_scans)
+    high_sum = sum((s.high_count or 0) for s in completed_scans)
+    medium_sum = sum((s.medium_count or 0) for s in completed_scans)
+    low_sum = sum((s.low_count or 0) for s in completed_scans)
+    total_vulnerabilities = sum((s.total_vulnerabilities or 0) for s in completed_scans)
+
+    # Calculate resolved/fixed vulnerabilities
+    scan_ids = [s.id for s in scans]
+    fixed_count = 0
+    if scan_ids:
+        fixed_count = db.query(Vulnerability).filter(
+            Vulnerability.scan_id.in_(scan_ids),
+            Vulnerability.status == "resolved"
+        ).count()
+
+    penalty = critical_sum * 15 + high_sum * 8 + medium_sum * 3 + low_sum * 1
+    security_score = max(0, min(100, 100 - penalty))
+
+    recent_scans = scans[:10]
+
+    return DashboardSummary(
+        critical=critical_sum,
+        high=high_sum,
+        medium=medium_sum,
+        low=low_sum,
+        total_scans=total_scans,
+        total_vulnerabilities=total_vulnerabilities,
+        fixed_vulnerabilities=fixed_count,
+        security_score=security_score,
+        recent_scans=recent_scans
+    )
 
 @router.get("/dashboard/stats", response_model=ScanStats)
 def get_dashboard_stats(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -439,12 +652,13 @@ def get_dashboard_stats(current_user: User = Depends(get_current_user), db: Sess
         scans = db.query(Scan).filter(Scan.project_id.in_(project_ids)).order_by(Scan.created_at.desc()).all() if project_ids else []
 
     total_scans = len(scans)
-    total_vulnerabilities = sum(s.total_vulnerabilities for s in scans if s.status == "completed")
+    completed_scans = [s for s in scans if s.status == "completed"]
     
-    critical_sum = sum(s.critical_count for s in scans if s.status == "completed")
-    high_sum = sum(s.high_count for s in scans if s.status == "completed")
-    medium_sum = sum(s.medium_count for s in scans if s.status == "completed")
-    low_sum = sum(s.low_count for s in scans if s.status == "completed")
+    critical_sum = sum((s.critical_count or 0) for s in completed_scans)
+    high_sum = sum((s.high_count or 0) for s in completed_scans)
+    medium_sum = sum((s.medium_count or 0) for s in completed_scans)
+    low_sum = sum((s.low_count or 0) for s in completed_scans)
+    total_vulnerabilities = sum((s.total_vulnerabilities or 0) for s in completed_scans)
 
     severity = SeverityStats(
         critical=critical_sum,
@@ -454,7 +668,6 @@ def get_dashboard_stats(current_user: User = Depends(get_current_user), db: Sess
         info=0
     )
 
-    # Return top 10 recent scans
     recent_scans = scans[:10]
 
     return ScanStats(
@@ -468,7 +681,11 @@ def get_dashboard_stats(current_user: User = Depends(get_current_user), db: Sess
 
 @router.get("/settings", response_model=AppSettings)
 async def get_settings():
-    models = await ollama_client.list_models()
+    try:
+        models = await ollama_client.list_models()
+    except Exception:
+        models = []
+
     return AppSettings(
         ollama_url=settings.OLLAMA_API_URL,
         default_model=settings.DEFAULT_LLM_MODEL,
@@ -573,7 +790,10 @@ async def update_settings(
     )
     
     # List models with updated client
-    models = await ollama_client.list_models()
+    try:
+        models = await ollama_client.list_models()
+    except Exception:
+        models = []
     
     # If using local Ollama, check if the requested model needs to be pulled
     if settings.AI_PROVIDER == "ollama" and settings_in.default_model and settings_in.default_model not in models:

@@ -75,6 +75,32 @@ async def chat_about_scan(
     db.commit()
     db.refresh(ai_msg)
 
+    try:
+        from backend.database import get_mongo_db, is_mongo_connected
+        if is_mongo_connected():
+            mongo_db = get_mongo_db()
+            if mongo_db is not None:
+                mongo_db.chat_messages.insert_many([
+                    {
+                        "message_id": user_msg.id,
+                        "scan_id": scan.id,
+                        "user_id": current_user.id,
+                        "message": user_msg.message,
+                        "is_ai": False,
+                        "created_at": user_msg.created_at
+                    },
+                    {
+                        "message_id": ai_msg.id,
+                        "scan_id": scan.id,
+                        "user_id": current_user.id,
+                        "message": ai_msg.message,
+                        "is_ai": True,
+                        "created_at": ai_msg.created_at
+                    }
+                ])
+    except Exception:
+        pass
+
     return ai_msg
 
 @router.get("/chat/{scan_id}", response_model=List[ChatMessageResponse])

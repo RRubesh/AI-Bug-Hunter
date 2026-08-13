@@ -27,6 +27,8 @@ services:
       dockerfile: docker/Dockerfile.backend
     container_name: bug_hunter_backend
     restart: always
+    env_file:
+      - ./backend/.env
     environment:
       - DATABASE_URL=postgresql://postgres:super-secure-db-password-987@db:5432/aibughunter
       - OLLAMA_API_URL=http://host.docker.internal:11434

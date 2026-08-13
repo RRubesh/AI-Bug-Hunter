@@ -125,8 +125,8 @@ class DependencyRunner:
                     # Split on operators
                     parts = re.split(r"==|>=|<=|>|<|~=", cleaned_line)
                     if parts:
-                        pkg_name = parts[0].strip().lower()
-                        pkg_ver = parts[1].strip() if len(parts) > 1 else ""
+                        pkg_name = str(parts[0]).strip().lower()
+                        pkg_ver = str(parts[1]).strip() if len(parts) > 1 else ""
                         pkg_ver = re.sub(r"[^\d.]", "", pkg_ver)
                         
                         if pkg_name in VULNERABLE_PACKAGES["pip"]:
@@ -136,11 +136,11 @@ class DependencyRunner:
                                     "file_path": "requirements.txt",
                                     "line_number": line_num,
                                     "code_snippet": line.strip(),
-                                    "severity": vuln_info["severity"],
+                                    "severity": str(vuln_info.get("severity") or "HIGH"),
                                     "category": "Vulnerable Dependency",
-                                    "message": vuln_info["message"] + (f" (Detected version: {pkg_ver or 'unknown'})" if pkg_ver else ""),
+                                    "message": str(vuln_info.get("message") or "") + (f" (Detected version: {pkg_ver or 'unknown'})" if pkg_ver else ""),
                                     "tool_name": "Dependency Analyzer",
-                                    "remediation": vuln_info["remediation"]
+                                    "remediation": str(vuln_info.get("remediation") or "")
                                 })
             except Exception as e:
                 print(f"Error parsing requirements.txt: {str(e)}")

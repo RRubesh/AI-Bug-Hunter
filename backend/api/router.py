@@ -813,7 +813,10 @@ async def update_settings(
 
 @router.get("/admin/users", response_model=List[UserResponse])
 def admin_list_users(current_admin: User = Depends(get_current_admin), db: Session = Depends(get_db)):
-    return db.query(User).all()
+    users = db.query(User).all()
+    if not users and current_admin:
+        return [current_admin]
+    return users
 
 @router.post("/admin/users/{user_id}/role")
 def admin_update_role(

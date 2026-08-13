@@ -1,11 +1,25 @@
 import sys
 import os
+import types
 from pathlib import Path
-# Add project root to sys.path to resolve 'backend' imports when running main.py directly
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+# Resolve sys.path so imports work both locally and on Vercel (Root Directory = backend)
+current_dir = Path(__file__).resolve().parent
+parent_dir = current_dir.parent
+
+if str(current_dir) not in sys.path:
+    sys.path.insert(0, str(current_dir))
+if str(parent_dir) not in sys.path:
+    sys.path.insert(0, str(parent_dir))
+
+# Alias 'backend' module package to current_dir if Vercel Root Directory is set to 'backend'
+if not (parent_dir / "backend").exists() and (current_dir / "config.py").exists():
+    backend_module = types.ModuleType("backend")
+    backend_module.__path__ = [str(current_dir)]
+    sys.modules["backend"] = backend_module
 
 # Remove shadowing database.py file if present so backend.database package directory is used
-db_file = Path(__file__).resolve().parent / "database.py"
+db_file = current_dir / "database.py"
 if db_file.exists():
     try:
         os.remove(db_file)

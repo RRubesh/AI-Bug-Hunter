@@ -1,4 +1,0 @@
-django==3.2.1
-requests==2.18.0
-urllib3==1.25.2
-jinja2==2.11.1

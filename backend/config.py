@@ -42,23 +42,23 @@ class Settings(BaseSettings):
         extra="ignore"
     )
 
-# Create required directories safely
-is_vercel = bool(os.getenv("VERCEL"))
-if is_vercel:
-    temp_dir = Path("/tmp")
-    Settings.UPLOAD_DIR = temp_dir / "uploads"
-    Settings.REPORT_DIR = temp_dir / "reports"
-
-try:
-    os.makedirs(Settings().UPLOAD_DIR, exist_ok=True)
-    os.makedirs(Settings().REPORT_DIR, exist_ok=True)
-except Exception:
-    pass
+# Detect Vercel serverless environment
+is_vercel = bool(os.getenv("VERCEL") or os.getenv("VERCEL_ENV") or os.getenv("NOW_BUILDER"))
 
 settings = Settings()
 
-if is_vercel and settings.DATABASE_URL.startswith("sqlite") and "/tmp/" not in settings.DATABASE_URL:
-    settings.DATABASE_URL = "sqlite:////tmp/ai_bug_hunter.db"
+if is_vercel:
+    temp_dir = Path("/tmp")
+    settings.UPLOAD_DIR = temp_dir / "uploads"
+    settings.REPORT_DIR = temp_dir / "reports"
+    if settings.DATABASE_URL.startswith("sqlite") and "/tmp/" not in settings.DATABASE_URL:
+        settings.DATABASE_URL = "sqlite:////tmp/ai_bug_hunter.db"
+
+try:
+    os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
+    os.makedirs(settings.REPORT_DIR, exist_ok=True)
+except Exception as err:
+    print(f"[Config Directory Notice]: {err}")
 
 # Synchronize MONGODB_URL and MONGODB_URI
 if not settings.MONGODB_URL and settings.MONGODB_URI:

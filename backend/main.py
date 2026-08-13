@@ -80,7 +80,7 @@ def startup_event():
 # CORS Configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # For local development ease, restrict in production config
+    allow_origin_regex=r".*",  # Supports wildcard origins with credentials across domains
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

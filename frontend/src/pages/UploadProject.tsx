@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { api } from "../services/api";
+import { api, getMaxUploadSizeMB, getMaxUploadSizeBytes, isCloudDeployment } from "../services/api";
 import { PageHeader } from "../components/ui/PageHeader";
 import { GlassCard } from "../components/ui/GlassCard";
 import { Button } from "../components/ui/Button";
@@ -39,18 +39,34 @@ export const UploadProject: React.FC<UploadProjectProps> = ({ onUploadSuccess, o
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const maxMB = getMaxUploadSizeMB();
+  const maxBytes = getMaxUploadSizeBytes();
+
+  const validateFile = (file: File): boolean => {
+    if (file.size > maxBytes) {
+      setError(`File "${file.name}" is ${(file.size / (1024 * 1024)).toFixed(2)} MB, which exceeds the ${maxMB} MB limit for ${isCloudDeployment() ? "cloud serverless deployments" : "upload archives"}. Please compress your source code without node_modules, .git, or venv folders, or use the Git Repository / Paste Code option.`);
+      return false;
+    }
+    return true;
+  };
+
   const handleFileDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDragOver(false);
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const file = e.dataTransfer.files[0];
       setSelectedFile(file);
+      setError("");
+      validateFile(file);
     }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      setSelectedFile(e.target.files[0]);
+      const file = e.target.files[0];
+      setSelectedFile(file);
+      setError("");
+      validateFile(file);
     }
   };
 
@@ -72,6 +88,9 @@ export const UploadProject: React.FC<UploadProjectProps> = ({ onUploadSuccess, o
 
       if (uploadType === "zip") {
         if (!selectedFile) throw new Error("Please select a ZIP file containing the source code.");
+        if (selectedFile.size > maxBytes) {
+          throw new Error(`File "${selectedFile.name}" is ${(selectedFile.size / (1024 * 1024)).toFixed(2)} MB, which exceeds the ${maxMB} MB upload limit. Please compress your source code without node_modules, .git, or venv folders, or use the Git Repository / Paste Code option.`);
+        }
         formData.append("file", selectedFile);
       } else if (uploadType === "git") {
         if (!gitUrl.trim()) throw new Error("Please enter a valid Git Repository URL.");
@@ -228,13 +247,23 @@ export const UploadProject: React.FC<UploadProjectProps> = ({ onUploadSuccess, o
               <label htmlFor="zip-file-input" className="cursor-pointer w-full h-full flex flex-col items-center">
                 {selectedFile ? (
                   <div className="space-y-2">
-                    <div className="w-12 h-12 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 mx-auto">
-                      <Check className="w-6 h-6" />
+                    <div className={`w-12 h-12 rounded-full border flex items-center justify-center mx-auto ${
+                      selectedFile.size > maxBytes
+                        ? "bg-rose-500/20 border-rose-500/40 text-rose-400"
+                        : "bg-emerald-500/20 border-emerald-500/40 text-emerald-400"
+                    }`}>
+                      {selectedFile.size > maxBytes ? <AlertCircle className="w-6 h-6" /> : <Check className="w-6 h-6" />}
                     </div>
                     <span className="font-bold text-sm text-slate-100 block">{selectedFile.name}</span>
-                    <span className="text-xs text-slate-400 font-mono block">
-                      {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB • Ready for scan
-                    </span>
+                    {selectedFile.size > maxBytes ? (
+                      <span className="text-xs text-rose-400 font-mono block font-semibold">
+                        ⚠️ {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB • Exceeds {maxMB} MB limit (Upload will fail)
+                      </span>
+                    ) : (
+                      <span className="text-xs text-emerald-400 font-mono block">
+                        {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB • Ready for scan
+                      </span>
+                    )}
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -243,7 +272,7 @@ export const UploadProject: React.FC<UploadProjectProps> = ({ onUploadSuccess, o
                       Drag & Drop your .zip source archive here, or <span className="text-cyan-400 underline">Browse</span>
                     </span>
                     <span className="text-[11px] text-slate-500 font-mono block">
-                      Supports Python, JavaScript, TypeScript, Go, Java & C++ zip packages up to 50MB
+                      Supports Python, JS, TS, Go, Java & C++ zip packages up to {maxMB} MB (Exclude node_modules, .git, venv)
                     </span>
                   </div>
                 )}

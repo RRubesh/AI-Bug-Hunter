@@ -109,6 +109,19 @@ export interface AppSettings {
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
 
+export const isCloudDeployment = (): boolean => {
+  const url = API_BASE_URL || (typeof window !== "undefined" ? window.location.href : "");
+  return url.includes("vercel.app") || url.includes("render.com");
+};
+
+export const getMaxUploadSizeMB = (): number => {
+  return isCloudDeployment() ? 4.5 : 50;
+};
+
+export const getMaxUploadSizeBytes = (): number => {
+  return getMaxUploadSizeMB() * 1024 * 1024;
+};
+
 const getApiUrl = (path: string): string => {
   const cleanPath = path.startsWith("/") ? path : `/${path}`;
   return API_BASE_URL ? `${API_BASE_URL}${cleanPath}` : cleanPath;
@@ -121,11 +134,20 @@ const safeJson = async (res: Response) => {
     data = text ? JSON.parse(text) : {};
   } catch {
     if (!res.ok) {
+      if (res.status === 413) {
+        throw new Error("Uploaded file/payload is too large for the server (HTTP 413). Cloud deployments limit uploads to 4.5 MB per request. Please compress your project into a smaller ZIP (excluding node_modules, .git, and venv) or use the Git Repository / Paste Code option.");
+      }
+      if (res.status === 504 || res.status === 502) {
+        throw new Error(`Server gateway timeout (HTTP ${res.status}). The requested operation timed out on the cloud server.`);
+      }
       throw new Error(`Server error (${res.status}). Verify backend URL is configured correctly.`);
     }
     throw new Error("Invalid response format received from server.");
   }
   if (!res.ok) {
+    if (res.status === 413) {
+      throw new Error(data.detail || "Uploaded file/payload is too large for the server (HTTP 413). Cloud deployments limit uploads to 4.5 MB per request. Please compress your project into a smaller ZIP (excluding node_modules, .git, and venv) or use the Git Repository / Paste Code option.");
+    }
     throw new Error(data.detail || `HTTP ${res.status} error from backend`);
   }
   return data;

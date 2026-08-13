@@ -100,11 +100,15 @@ def create_project(
         # Extract files
         try:
             import zipfile
+            ignored_dirs = {"node_modules", ".git", "__pycache__", "venv", ".venv", ".next", "dist", "build"}
             with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-                # Safeguard: prevent directory traversal attacks in zip file extraction
+                # Safeguard: prevent directory traversal attacks & skip bloated dependency directories
                 for member in zip_ref.infolist():
                     filename = Path(member.filename)
                     if ".." in filename.parts or filename.is_absolute():
+                        continue
+                    parts = {p.lower() for p in filename.parts}
+                    if parts & ignored_dirs:
                         continue
                     zip_ref.extract(member, project_dir)
             # Remove zip archive after extraction

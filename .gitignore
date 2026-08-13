@@ -25,6 +25,8 @@ dist-ssr/
 
 # Local SQLite databases
 *.db
+*.db-shm
+*.db-wal
 *.sqlite3
 
 # Uploads and reports (generated data)

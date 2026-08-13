@@ -42,11 +42,23 @@ class Settings(BaseSettings):
         extra="ignore"
     )
 
-# Create required directories
-os.makedirs(Settings().UPLOAD_DIR, exist_ok=True)
-os.makedirs(Settings().REPORT_DIR, exist_ok=True)
+# Create required directories safely
+is_vercel = bool(os.getenv("VERCEL"))
+if is_vercel:
+    temp_dir = Path("/tmp")
+    Settings.UPLOAD_DIR = temp_dir / "uploads"
+    Settings.REPORT_DIR = temp_dir / "reports"
+
+try:
+    os.makedirs(Settings().UPLOAD_DIR, exist_ok=True)
+    os.makedirs(Settings().REPORT_DIR, exist_ok=True)
+except Exception:
+    pass
 
 settings = Settings()
+
+if is_vercel and settings.DATABASE_URL.startswith("sqlite") and "/tmp/" not in settings.DATABASE_URL:
+    settings.DATABASE_URL = "sqlite:////tmp/ai_bug_hunter.db"
 
 # Synchronize MONGODB_URL and MONGODB_URI
 if not settings.MONGODB_URL and settings.MONGODB_URI:
@@ -58,4 +70,5 @@ if not settings.MONGODB_DB_NAME and settings.MONGODB_DATABASE:
 if settings.DATABASE_URL.startswith("mongodb://") or settings.DATABASE_URL.startswith("mongodb+srv://"):
     if not settings.MONGODB_URL:
         settings.MONGODB_URL = settings.DATABASE_URL
-    settings.DATABASE_URL = f"sqlite:///{settings.BASE_DIR}/ai_bug_hunter.db"
+    default_sqlite_path = "/tmp/ai_bug_hunter.db" if is_vercel else f"{settings.BASE_DIR}/ai_bug_hunter.db"
+    settings.DATABASE_URL = f"sqlite:///{default_sqlite_path}"

@@ -39,37 +39,42 @@ app = FastAPI(
 @app.on_event("startup")
 def startup_event():
     print("[Startup]: Initializing AI Bug Hunter platform engines...")
-    src_logo = r"C:\Users\91904\.gemini\antigravity-ide\brain\afe98b21-0dc6-471d-8c96-51cc40bfc616\media__1786547982528.jpg"
-    dst_logo1 = r"c:\Users\91904\OneDrive\Music\Documents\AI Bug Hunter\frontend\src\assets\logo.jpg"
-    dst_logo2 = r"c:\Users\91904\OneDrive\Music\Documents\AI Bug Hunter\frontend\public\logo.jpg"
-    icon_dst = r"c:\Users\91904\OneDrive\Music\Documents\AI Bug Hunter\frontend\src\assets\logo-icon.jpg"
-    if os.path.exists(src_logo):
-        try:
-            shutil.copyfile(src_logo, dst_logo1)
-            shutil.copyfile(src_logo, dst_logo2)
+    try:
+        src_logo = r"C:\Users\91904\.gemini\antigravity-ide\brain\afe98b21-0dc6-471d-8c96-51cc40bfc616\media__1786547982528.jpg"
+        dst_logo1 = r"c:\Users\91904\OneDrive\Music\Documents\AI Bug Hunter\frontend\src\assets\logo.jpg"
+        dst_logo2 = r"c:\Users\91904\OneDrive\Music\Documents\AI Bug Hunter\frontend\public\logo.jpg"
+        icon_dst = r"c:\Users\91904\OneDrive\Music\Documents\AI Bug Hunter\frontend\src\assets\logo-icon.jpg"
+        if os.path.exists(src_logo):
             try:
-                from PIL import Image
-                im = Image.open(src_logo)
-                w, h = im.size
-                crop_box = (int(w * 0.15), int(h * 0.02), int(w * 0.85), int(h * 0.65))
-                icon_im = im.crop(crop_box)
-                icon_im.save(icon_dst, quality=95)
-                icon_public = r"c:\Users\91904\OneDrive\Music\Documents\AI Bug Hunter\frontend\public\logo-icon.jpg"
-                icon_im.save(icon_public, quality=95)
-                print("[Logo Update]: Created crisp logo-icon.jpg successfully!")
-            except Exception as pe:
-                print("[PIL Crop Notice]:", pe)
-            print("[Logo Update]: Copied new logo image to frontend assets successfully!")
-        except Exception as e:
-            print("[Logo Update Error]:", e)
-
+                shutil.copyfile(src_logo, dst_logo1)
+                shutil.copyfile(src_logo, dst_logo2)
+                try:
+                    from PIL import Image
+                    im = Image.open(src_logo)
+                    w, h = im.size
+                    crop_box = (int(w * 0.15), int(h * 0.02), int(w * 0.85), int(h * 0.65))
+                    icon_im = im.crop(crop_box)
+                    icon_im.save(icon_dst, quality=95)
+                    icon_public = r"c:\Users\91904\OneDrive\Music\Documents\AI Bug Hunter\frontend\public\logo-icon.jpg"
+                    icon_im.save(icon_public, quality=95)
+                    print("[Logo Update]: Created crisp logo-icon.jpg successfully!")
+                except Exception as pe:
+                    print("[PIL Crop Notice]:", pe)
+                print("[Logo Update]: Copied new logo image to frontend assets successfully!")
+            except Exception as e:
+                print("[Logo Update Error]:", e)
+    except Exception as se:
+        print("[Startup File Notice]:", se)
 
     # Verify MongoDB Atlas connection and indexes
-    connected = mongo_manager.connect()
-    if connected:
-        mongo_manager.log_security_event("platform_startup", "AI Bug Hunter backend started successfully.")
-    else:
-        print("[Startup Notice]: Running with SQLite local storage fallback (MONGODB_URI unconfigured or unreachable).")
+    try:
+        connected = mongo_manager.connect()
+        if connected:
+            mongo_manager.log_security_event("platform_startup", "AI Bug Hunter backend started successfully.")
+        else:
+            print("[Startup Notice]: Running with SQLite local storage fallback (MONGODB_URI unconfigured or unreachable).")
+    except Exception as me:
+        print("[MongoDB Startup Notice]:", me)
 
 
 # CORS Configuration

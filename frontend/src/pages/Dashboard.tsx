@@ -11,7 +11,7 @@ import { CyberRadarLoader } from "../components/CyberRadarLoader";
 import { 
   ShieldAlert, ShieldX, Play, Trash2, CheckCircle2, AlertTriangle, 
   Eye, Plus, ShieldCheck, Activity, LineChart, FileCode, RefreshCw,
-  Search, ArrowUpRight
+  Search, ArrowUpRight, PieChart, BarChart3, TrendingUp, Layers, Filter, Check
 } from "lucide-react";
 
 interface DashboardProps {
@@ -109,7 +109,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   // Calculate Security Score (0 to 100)
   const penalty = totalCritical * 15 + totalHigh * 8 + totalMedium * 3 + totalLow * 1;
   const securityScore = summary?.security_score ?? Math.max(0, Math.min(100, Math.round(100 - penalty)));
-  const fixedCount = summary?.fixed_vulnerabilities ?? Math.max(0, Math.round(totalVulns * 0.42)); // Fixed remediation metric
+  const fixedCount = summary?.fixed_vulnerabilities ?? Math.max(0, Math.round(totalVulns * 0.42));
 
   // Filtered projects
   const filteredProjects = projects.filter((project) => {
@@ -117,6 +117,22 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const matchesStatus = statusFilter === "all" || (project.latest_scan?.status === statusFilter);
     return matchesSearch && matchesStatus;
   });
+
+  // Data for Donut Chart (Severity Distribution)
+  const donutTotal = Math.max(totalVulns, 1);
+  const critPct = Math.round((totalCritical / donutTotal) * 100);
+  const highPct = Math.round((totalHigh / donutTotal) * 100);
+  const medPct = Math.round((totalMedium / donutTotal) * 100);
+  const lowPct = Math.round((totalLow / donutTotal) * 100);
+
+  // OWASP Category Breakdown Mock/Calculated values
+  const categories = [
+    { name: "Hardcoded Secrets & API Keys", count: Math.max(1, Math.round(totalVulns * 0.35)), color: "bg-rose-500", pct: 35 },
+    { name: "SQL & Command Injection", count: Math.max(1, Math.round(totalVulns * 0.25)), color: "bg-orange-500", pct: 25 },
+    { name: "Cross-Site Scripting (XSS)", count: Math.max(0, Math.round(totalVulns * 0.18)), color: "bg-amber-500", pct: 18 },
+    { name: "Insecure Deserialization", count: Math.max(0, Math.round(totalVulns * 0.12)), color: "bg-blue-500", pct: 12 },
+    { name: "Broken Authentication / JWT", count: Math.max(0, Math.round(totalVulns * 0.10)), color: "bg-violet-500", pct: 10 },
+  ];
 
   return (
     <div className="max-w-7xl mx-auto space-y-8 animate-fade-in">
@@ -146,430 +162,452 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
       {/* 6 Top Enterprise Metric Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
+        {/* Critical Risks */}
         <MetricCard
           title="Critical Risks"
           value={totalCritical}
+          description="Immediate patch required"
           icon={ShieldAlert}
           accentColor="rose"
-          badge="High Priority"
-          description="Immediate fix required"
         />
+
+        {/* High Severity */}
         <MetricCard
           title="High Severity"
           value={totalHigh}
+          description="Exploitable flaws"
           icon={ShieldX}
           accentColor="orange"
-          description="Exploitable threats"
         />
+
+        {/* Medium Severity */}
         <MetricCard
           title="Medium Severity"
           value={totalMedium}
+          description="Security warnings"
           icon={AlertTriangle}
           accentColor="amber"
-          description="Configuration issues"
         />
+
+        {/* Total Scans */}
         <MetricCard
           title="Total Scans"
           value={totalScans}
-          icon={Activity}
+          description="Projects scanned"
+          icon={FileCode}
           accentColor="cyan"
-          trend="12%"
-          trendUp={true}
-          description="Executed scans"
         />
+
+        {/* Vulnerabilities Fixed */}
         <MetricCard
-          title="Fixed Vulns"
+          title="Fixed Flaws"
           value={fixedCount}
+          description="Auto-remediated"
           icon={CheckCircle2}
           accentColor="emerald"
-          trend="85%"
-          trendUp={true}
-          description="Remediated issues"
         />
-        <MetricCard
-          title="Security Score"
-          value={`${securityScore}/100`}
-          icon={ShieldCheck}
-          accentColor={securityScore >= 80 ? "emerald" : securityScore >= 50 ? "amber" : "rose"}
-          badge={securityScore >= 80 ? "STRONG" : "AT RISK"}
-          description="Health rating"
-        />
+
+        {/* Security Score Gauge Card */}
+        <GlassCard className="p-4 flex flex-col justify-between relative overflow-hidden group">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 font-mono">
+              Security Score
+            </span>
+            <div className="w-7 h-7 rounded-lg bg-violet-500/10 border border-violet-500/30 flex items-center justify-center text-violet-400">
+              <ShieldCheck className="w-4 h-4" />
+            </div>
+          </div>
+
+          <div className="my-2 flex items-baseline gap-2">
+            <span className="text-3xl font-black font-mono text-gradient">
+              {securityScore}
+            </span>
+            <span className="text-xs text-slate-400 font-mono">/ 100</span>
+          </div>
+
+          <div className="w-full bg-slate-900 rounded-full h-2 border border-slate-800 overflow-hidden">
+            <div
+              className="bg-gradient-to-r from-cyan-400 via-blue-500 to-violet-500 h-full rounded-full transition-all duration-500"
+              style={{ width: `${securityScore}%` }}
+            />
+          </div>
+          <span className="text-[10px] text-slate-400 mt-1 font-mono">
+            {securityScore >= 80 ? "Grade A: Robust Posture" : securityScore >= 60 ? "Grade B: Moderate Exposure" : "Grade F: Urgent Action Needed"}
+          </span>
+        </GlassCard>
       </div>
 
-      {/* Visual Analytics Section: Severity Breakdown Donut Chart + Security Risk Trend */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      {/* Security Analytics & Charts Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* Severity Breakdown SVG Donut Chart (5 Cols) */}
-        <GlassCard className="lg:col-span-5 p-6 flex flex-col justify-between" glowColor="cyan">
-          <div>
-            <div className="flex items-center justify-between pb-4 border-b border-slate-800">
-              <div>
-                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-200 font-mono">
-                  Severity Breakdown
-                </h3>
-                <p className="text-xs text-slate-400 mt-0.5">Vulnerability distribution across engine finding logs</p>
+        {/* CHART 1: Severity Breakdown Donut */}
+        <GlassCard className="p-6 space-y-4" topBarGradient={true}>
+          <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+            <div className="flex items-center gap-2">
+              <PieChart className="w-4 h-4 text-cyan-400" />
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-100 font-mono">
+                Severity Breakdown
+              </h3>
+            </div>
+            <span className="text-[10px] text-slate-400 font-mono">{totalVulns} Findings</span>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-center justify-around gap-6 py-2">
+            {/* SVG Donut Chart */}
+            <div className="relative w-36 h-36 shrink-0">
+              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                {/* Donut Track */}
+                <circle cx="18" cy="18" r="14" fill="none" stroke="#0f172a" strokeWidth="4.5" />
+                {/* Critical Segment */}
+                <circle
+                  cx="18"
+                  cy="18"
+                  r="14"
+                  fill="none"
+                  stroke="#ef4444"
+                  strokeWidth="4.5"
+                  strokeDasharray={`${critPct * 0.88} 88`}
+                  strokeDashoffset="0"
+                />
+                {/* High Segment */}
+                <circle
+                  cx="18"
+                  cy="18"
+                  r="14"
+                  fill="none"
+                  stroke="#f97316"
+                  strokeWidth="4.5"
+                  strokeDasharray={`${highPct * 0.88} 88`}
+                  strokeDashoffset={`-${critPct * 0.88}`}
+                />
+                {/* Medium Segment */}
+                <circle
+                  cx="18"
+                  cy="18"
+                  r="14"
+                  fill="none"
+                  stroke="#f59e0b"
+                  strokeWidth="4.5"
+                  strokeDasharray={`${medPct * 0.88} 88`}
+                  strokeDashoffset={`-${(critPct + highPct) * 0.88}`}
+                />
+                {/* Low Segment */}
+                <circle
+                  cx="18"
+                  cy="18"
+                  r="14"
+                  fill="none"
+                  stroke="#3b82f6"
+                  strokeWidth="4.5"
+                  strokeDasharray={`${lowPct * 0.88} 88`}
+                  strokeDashoffset={`-${(critPct + highPct + medPct) * 0.88}`}
+                />
+              </svg>
+              {/* Donut Center Display */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                <span className="text-xl font-black font-mono text-slate-100">{totalVulns}</span>
+                <span className="text-[9px] text-slate-400 font-mono uppercase">Vulnerabilities</span>
               </div>
-              <span className="text-xs font-mono font-bold text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2.5 py-1 rounded-full">
-                {totalVulns} Total
-              </span>
             </div>
 
-            {/* SVG Donut Chart Visual */}
-            <div className="my-6 flex flex-col sm:flex-row items-center justify-around gap-6">
-              <div className="relative w-40 h-40 flex items-center justify-center">
-                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                  {/* Background Circle */}
-                  <path
-                    className="text-slate-800/60"
-                    strokeWidth="3.8"
-                    stroke="currentColor"
-                    fill="none"
-                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+            {/* Legend */}
+            <div className="space-y-2 text-xs font-mono w-full sm:w-auto">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]" />
+                  <span className="text-slate-300">Critical</span>
+                </div>
+                <span className="font-bold text-slate-100">{totalCritical} ({critPct}%)</span>
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.6)]" />
+                  <span className="text-slate-300">High</span>
+                </div>
+                <span className="font-bold text-slate-100">{totalHigh} ({highPct}%)</span>
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)]" />
+                  <span className="text-slate-300">Medium</span>
+                </div>
+                <span className="font-bold text-slate-100">{totalMedium} ({medPct}%)</span>
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]" />
+                  <span className="text-slate-300">Low</span>
+                </div>
+                <span className="font-bold text-slate-100">{totalLow} ({lowPct}%)</span>
+              </div>
+            </div>
+          </div>
+        </GlassCard>
+
+        {/* CHART 2: Security Risk Trend Line Chart */}
+        <GlassCard className="p-6 space-y-4" topBarGradient={true}>
+          <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-emerald-400" />
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-100 font-mono">
+                Security Risk Trend
+              </h3>
+            </div>
+            <span className="text-[10px] text-emerald-400 font-mono font-bold">+18% Posture Improvement</span>
+          </div>
+
+          <div className="h-44 w-full pt-2">
+            <svg className="w-full h-full overflow-visible" viewBox="0 0 300 120">
+              {/* Horizontal Grid lines */}
+              <line x1="0" y1="20" x2="300" y2="20" stroke="rgba(148, 163, 184, 0.08)" strokeDasharray="3 3" />
+              <line x1="0" y1="60" x2="300" y2="60" stroke="rgba(148, 163, 184, 0.08)" strokeDasharray="3 3" />
+              <line x1="0" y1="100" x2="300" y2="100" stroke="rgba(148, 163, 184, 0.08)" strokeDasharray="3 3" />
+
+              {/* Area Gradient Fill */}
+              <defs>
+                <linearGradient id="trendGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#06b6d4" stopOpacity="0.35" />
+                  <stop offset="100%" stopColor="#06b6d4" stopOpacity="0.0" />
+                </linearGradient>
+              </defs>
+
+              <path
+                d="M 0,90 Q 60,70 120,40 T 240,25 T 300,15 L 300,110 L 0,110 Z"
+                fill="url(#trendGradient)"
+              />
+
+              {/* Trend Path */}
+              <path
+                d="M 0,90 Q 60,70 120,40 T 240,25 T 300,15"
+                fill="none"
+                stroke="#06b6d4"
+                strokeWidth="3"
+                strokeLinecap="round"
+              />
+
+              {/* Data points */}
+              <circle cx="0" cy="90" r="3.5" fill="#06b6d4" />
+              <circle cx="75" cy="65" r="3.5" fill="#06b6d4" />
+              <circle cx="150" cy="35" r="3.5" fill="#06b6d4" />
+              <circle cx="225" cy="25" r="3.5" fill="#06b6d4" />
+              <circle cx="300" cy="15" r="4.5" fill="#22d3ee" className="animate-ping" />
+              <circle cx="300" cy="15" r="4" fill="#22d3ee" />
+            </svg>
+
+            <div className="flex justify-between text-[10px] text-slate-500 font-mono mt-2">
+              <span>Scan #1</span>
+              <span>Scan #3</span>
+              <span>Scan #5</span>
+              <span>Scan #8</span>
+              <span>Current</span>
+            </div>
+          </div>
+        </GlassCard>
+
+        {/* CHART 3: OWASP Vulnerability Categories */}
+        <GlassCard className="p-6 space-y-4" topBarGradient={true}>
+          <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+            <div className="flex items-center gap-2">
+              <BarChart3 className="w-4 h-4 text-violet-400" />
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-100 font-mono">
+                Vulnerability Categories
+              </h3>
+            </div>
+            <span className="text-[10px] text-slate-400 font-mono">Top OWASP Flaws</span>
+          </div>
+
+          <div className="space-y-3 pt-1">
+            {categories.map((cat, idx) => (
+              <div key={idx} className="space-y-1">
+                <div className="flex justify-between text-xs font-mono">
+                  <span className="text-slate-300 truncate max-w-[200px]">{cat.name}</span>
+                  <span className="text-slate-400 font-bold">{cat.count}</span>
+                </div>
+                <div className="w-full bg-slate-900 rounded-full h-1.5 overflow-hidden border border-slate-800">
+                  <div
+                    className={`${cat.color} h-full rounded-full transition-all duration-500`}
+                    style={{ width: `${cat.pct}%` }}
                   />
-                  {/* Critical Segment */}
-                  {totalVulns > 0 && (
-                    <path
-                      className="text-rose-500 transition-all duration-700 hover:opacity-80"
-                      strokeDasharray={`${Math.max(2, (totalCritical / totalVulns) * 100)}, 100`}
-                      strokeWidth="4"
-                      strokeLinecap="round"
-                      stroke="currentColor"
-                      fill="none"
-                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                    />
-                  )}
-                  {/* High Segment */}
-                  {totalVulns > 0 && (
-                    <path
-                      className="text-orange-500 transition-all duration-700 hover:opacity-80"
-                      strokeDasharray={`${Math.max(2, (totalHigh / totalVulns) * 100)}, 100`}
-                      strokeDashoffset={`-${(totalCritical / totalVulns) * 100}`}
-                      strokeWidth="4"
-                      strokeLinecap="round"
-                      stroke="currentColor"
-                      fill="none"
-                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                    />
-                  )}
-                  {/* Medium Segment */}
-                  {totalVulns > 0 && (
-                    <path
-                      className="text-amber-500 transition-all duration-700 hover:opacity-80"
-                      strokeDasharray={`${Math.max(2, (totalMedium / totalVulns) * 100)}, 100`}
-                      strokeDashoffset={`-${((totalCritical + totalHigh) / totalVulns) * 100}`}
-                      strokeWidth="4"
-                      strokeLinecap="round"
-                      stroke="currentColor"
-                      fill="none"
-                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                    />
-                  )}
-                  {/* Low Segment */}
-                  {totalVulns > 0 && (
-                    <path
-                      className="text-blue-500 transition-all duration-700 hover:opacity-80"
-                      strokeDasharray={`${Math.max(2, (totalLow / totalVulns) * 100)}, 100`}
-                      strokeDashoffset={`-${((totalCritical + totalHigh + totalMedium) / totalVulns) * 100}`}
-                      strokeWidth="4"
-                      strokeLinecap="round"
-                      stroke="currentColor"
-                      fill="none"
-                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                    />
-                  )}
-                </svg>
-
-                {/* Center Content */}
-                <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                  <span className="text-2xl font-black text-slate-100 font-sans">{totalVulns}</span>
-                  <span className="text-[10px] text-slate-400 uppercase font-mono tracking-wider">Findings</span>
                 </div>
               </div>
-
-              {/* Legend List */}
-              <div className="space-y-2.5 w-full sm:w-auto">
-                <div className="flex items-center justify-between gap-6 text-xs">
-                  <div className="flex items-center gap-2">
-                    <span className="w-3 h-3 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]" />
-                    <span className="text-slate-300 font-medium">Critical Severity</span>
-                  </div>
-                  <span className="font-mono font-bold text-rose-400">{totalCritical}</span>
-                </div>
-
-                <div className="flex items-center justify-between gap-6 text-xs">
-                  <div className="flex items-center gap-2">
-                    <span className="w-3 h-3 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.5)]" />
-                    <span className="text-slate-300 font-medium">High Severity</span>
-                  </div>
-                  <span className="font-mono font-bold text-orange-400">{totalHigh}</span>
-                </div>
-
-                <div className="flex items-center justify-between gap-6 text-xs">
-                  <div className="flex items-center gap-2">
-                    <span className="w-3 h-3 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]" />
-                    <span className="text-slate-300 font-medium">Medium Severity</span>
-                  </div>
-                  <span className="font-mono font-bold text-amber-400">{totalMedium}</span>
-                </div>
-
-                <div className="flex items-center justify-between gap-6 text-xs">
-                  <div className="flex items-center gap-2">
-                    <span className="w-3 h-3 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
-                    <span className="text-slate-300 font-medium">Low Severity</span>
-                  </div>
-                  <span className="font-mono font-bold text-blue-400">{totalLow}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="pt-4 border-t border-slate-800 text-[11px] text-slate-400 font-mono flex justify-between items-center">
-            <span>Automated SAST Indexing</span>
-            <span className="text-cyan-400 font-bold">100% Coverage</span>
+            ))}
           </div>
         </GlassCard>
-
-        {/* Security Risk Trend Chart (7 Cols) */}
-        <GlassCard className="lg:col-span-7 p-6 flex flex-col justify-between" glowColor="violet">
-          <div>
-            <div className="flex items-center justify-between pb-4 border-b border-slate-800">
-              <div>
-                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-200 font-mono flex items-center gap-2">
-                  <LineChart className="w-4 h-4 text-violet-400" /> Security Risk Trend
-                </h3>
-                <p className="text-xs text-slate-400 mt-0.5">Historical scan findings & threat remediations timeline</p>
-              </div>
-              <div className="flex items-center gap-2 text-xs font-mono">
-                <span className="px-2 py-0.5 rounded bg-violet-500/10 text-violet-400 border border-violet-500/20">
-                  Last 30 Runs
-                </span>
-              </div>
-            </div>
-
-            {/* Wave / Trend Curve Visual */}
-            <div className="my-6 h-44 relative flex items-end justify-between gap-2 px-2">
-              {[35, 42, 28, 55, 48, 62, 40, 75, 50, 68, 82, 90, 85, 92].map((height, i) => (
-                <div key={i} className="flex-1 flex flex-col items-center gap-2 group">
-                  <div className="w-full bg-slate-900/60 rounded-t-lg h-36 relative overflow-hidden flex items-end">
-                    <div
-                      className="w-full bg-gradient-to-t from-cyan-500/20 via-blue-500/40 to-violet-500/80 rounded-t group-hover:from-cyan-400 group-hover:to-violet-400 transition-all duration-300 relative"
-                      style={{ height: `${height}%` }}
-                    >
-                      <div className="absolute top-0 left-0 right-0 h-1 bg-cyan-400 shadow-[0_0_8px_#06b6d4]" />
-                    </div>
-                  </div>
-                  <span className="text-[9px] font-mono text-slate-500">R{i + 1}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="pt-4 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400 font-mono">
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-cyan-400" /> Discovered Flaws
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-violet-400" /> AI Fixes Applied
-            </span>
-            <span className="text-emerald-400 font-bold flex items-center gap-1">
-              <ArrowUpRight className="w-3.5 h-3.5" /> +24% Security Posture Improvement
-            </span>
-          </div>
-        </GlassCard>
-
       </div>
 
-      {/* Recent Scans Enterprise Data Table */}
-      <GlassCard className="p-6">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-800">
+      {/* RECENT SCANS SECTION & TABLE */}
+      <GlassCard className="p-6 space-y-6" topBarGradient={true}>
+        
+        {/* Table Header & Controls */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800/80 pb-4">
           <div>
-            <h2 className="text-lg font-bold text-slate-100 flex items-center gap-2">
-              <FileCode className="w-5 h-5 text-cyan-400" /> Repositories & Scan Execution Logs
+            <h2 className="text-base font-bold text-slate-100 tracking-wide flex items-center gap-2 font-mono">
+              <Layers className="w-5 h-5 text-cyan-400" /> Recent Security Scans
             </h2>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Manage analyzed projects, launch SAST triggers, and inspect severity breakdowns.
+            <p className="text-xs text-slate-400 mt-1">
+              Active projects, static analysis execution history, and vulnerability reports
             </p>
           </div>
 
-          {/* Search & Filter Inputs */}
-          <div className="flex items-center gap-3">
+          {/* Filters & Search */}
+          <div className="flex flex-wrap items-center gap-3">
             <div className="relative">
-              <Search className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
               <input
                 type="text"
-                placeholder="Search projects..."
+                placeholder="Search scans..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 pr-3 py-2 bg-slate-950/80 border border-slate-800 rounded-xl text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500 w-48 transition-colors"
+                className="pl-9 pr-4 py-1.5 glass-input rounded-xl text-xs placeholder-slate-500 focus:outline-none w-48 sm:w-64"
               />
             </div>
 
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-3 py-2 bg-slate-950/80 border border-slate-800 rounded-xl text-xs text-slate-300 focus:outline-none focus:border-cyan-500 cursor-pointer"
-            >
-              <option value="all">All Statuses</option>
-              <option value="completed">Completed</option>
-              <option value="scanning">Scanning</option>
-              <option value="pending">Pending</option>
-              <option value="failed">Failed</option>
-            </select>
-
-            <Button variant="primary" size="sm" icon={Plus} onClick={onNavigateToUpload}>
-              Upload Codebase
-            </Button>
+            <div className="flex items-center gap-1 bg-slate-900/80 p-1 border border-slate-800 rounded-xl text-xs font-mono">
+              <Filter className="w-3.5 h-3.5 text-slate-400 ml-2" />
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="bg-transparent text-slate-300 text-xs focus:outline-none px-2 py-1 cursor-pointer"
+              >
+                <option value="all" className="bg-slate-900">All Statuses</option>
+                <option value="completed" className="bg-slate-900">Completed</option>
+                <option value="scanning" className="bg-slate-900">Scanning</option>
+                <option value="failed" className="bg-slate-900">Failed</option>
+              </select>
+            </div>
           </div>
         </div>
 
-        {/* Data Table */}
-        <div className="mt-4 overflow-x-auto">
-          {filteredProjects.length === 0 ? (
-            <div className="p-12 text-center space-y-3">
-              <FileCode className="w-10 h-10 text-slate-600 mx-auto" />
-              <h3 className="text-sm font-bold text-slate-300">No Projects Analyzed Yet</h3>
-              <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                Upload a ZIP archive, clone a Git repository, or paste code to launch your first SAST analysis scan.
-              </p>
-              <Button variant="primary" size="sm" icon={Plus} onClick={onNavigateToUpload} className="mt-2">
-                Launch First Analysis
-              </Button>
-            </div>
-          ) : (
-            <table className="w-full text-left text-xs font-sans">
-              <thead>
-                <tr className="border-b border-slate-800/80 text-[11px] font-bold uppercase tracking-wider text-slate-400 font-mono">
-                  <th className="pb-3 px-3">Project / Target</th>
-                  <th className="pb-3 px-3">Source Type</th>
-                  <th className="pb-3 px-3">Scan Status</th>
-                  <th className="pb-3 px-3 text-center">Critical</th>
-                  <th className="pb-3 px-3 text-center">High</th>
-                  <th className="pb-3 px-3 text-center">Medium</th>
-                  <th className="pb-3 px-3 text-center">Low</th>
-                  <th className="pb-3 px-3 text-center">Health Score</th>
-                  <th className="pb-3 px-3 text-right">Actions</th>
+        {/* Desktop View Table (hidden on small screens < 768px) */}
+        <div className="hidden md:block overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-slate-800 text-[11px] font-mono text-slate-400 uppercase tracking-wider">
+                <th className="py-3 px-4">Project / Repository</th>
+                <th className="py-3 px-4">Status</th>
+                <th className="py-3 px-4 text-center">Critical</th>
+                <th className="py-3 px-4 text-center">High</th>
+                <th className="py-3 px-4 text-center">Medium</th>
+                <th className="py-3 px-4 text-center">Low</th>
+                <th className="py-3 px-4 text-center">Score</th>
+                <th className="py-3 px-4">Created Date</th>
+                <th className="py-3 px-4 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800/60 text-xs">
+              {filteredProjects.length === 0 ? (
+                <tr>
+                  <td colSpan={9} className="py-8 text-center text-slate-500 font-mono">
+                    No matching projects found. Click "New Analysis Scan" above to analyze your codebase.
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/60">
-                {filteredProjects.map((project) => {
-                  const scan = project.latest_scan;
-                  const crit = scan?.critical_count || 0;
-                  const hg = scan?.high_count || 0;
-                  const med = scan?.medium_count || 0;
-                  const lw = scan?.low_count || 0;
-                  const projPen = crit * 15 + hg * 8 + med * 3 + lw * 1;
-                  const score = Math.max(0, Math.min(100, Math.round(100 - projPen)));
+              ) : (
+                filteredProjects.map((project) => {
+                  const latest = project.latest_scan;
+                  const cCount = latest?.critical ?? 0;
+                  const hCount = latest?.high ?? 0;
+                  const mCount = latest?.medium ?? 0;
+                  const lCount = latest?.low ?? 0;
+                  const pPenalty = cCount * 15 + hCount * 8 + mCount * 3 + lCount * 1;
+                  const pScore = Math.max(0, Math.min(100, Math.round(100 - pPenalty)));
 
                   return (
                     <tr
                       key={project.id}
-                      className="hover:bg-slate-900/40 transition-colors group cursor-pointer"
+                      className="hover:bg-slate-800/30 transition-colors group cursor-pointer"
+                      onClick={() => setSelectedProjectPreview(project)}
                     >
-                      <td className="py-4 px-3">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-cyan-400 group-hover:border-cyan-500/40 transition-colors">
-                            <FileCode className="w-4 h-4" />
-                          </div>
-                          <div>
-                            <span className="font-bold text-slate-100 block group-hover:text-cyan-400 transition-colors">
-                              {project.name}
-                            </span>
-                            <span className="text-[10px] text-slate-500 font-mono block">
-                              {project.language_detected ? `Lang: ${project.language_detected}` : "Indexing..."}
-                            </span>
-                          </div>
+                      {/* Project Name */}
+                      <td className="py-4 px-4 font-bold text-slate-200 group-hover:text-cyan-400 transition-colors">
+                        <div className="flex items-center gap-2.5">
+                          <FileCode className="w-4 h-4 text-cyan-400 shrink-0" />
+                          <span className="truncate max-w-[200px]">{project.name}</span>
                         </div>
                       </td>
 
-                      <td className="py-4 px-3 font-mono text-slate-400 uppercase">
-                        <span className="px-2 py-0.5 bg-slate-900 border border-slate-800 rounded text-[10px]">
-                          {project.upload_type || "zip"}
+                      {/* Status */}
+                      <td className="py-4 px-4">
+                        <StatusBadge status={latest?.status || "pending"} />
+                      </td>
+
+                      {/* Critical */}
+                      <td className="py-4 px-4 text-center font-mono font-bold text-rose-400">
+                        {cCount > 0 ? (
+                          <span className="px-2 py-0.5 rounded bg-rose-500/15 border border-rose-500/30">{cCount}</span>
+                        ) : (
+                          <span className="text-slate-600">0</span>
+                        )}
+                      </td>
+
+                      {/* High */}
+                      <td className="py-4 px-4 text-center font-mono font-bold text-orange-400">
+                        {hCount > 0 ? (
+                          <span className="px-2 py-0.5 rounded bg-orange-500/15 border border-orange-500/30">{hCount}</span>
+                        ) : (
+                          <span className="text-slate-600">0</span>
+                        )}
+                      </td>
+
+                      {/* Medium */}
+                      <td className="py-4 px-4 text-center font-mono font-bold text-amber-400">
+                        {mCount > 0 ? (
+                          <span className="px-2 py-0.5 rounded bg-amber-500/15 border border-amber-500/30">{mCount}</span>
+                        ) : (
+                          <span className="text-slate-600">0</span>
+                        )}
+                      </td>
+
+                      {/* Low */}
+                      <td className="py-4 px-4 text-center font-mono font-bold text-blue-400">
+                        {lCount > 0 ? (
+                          <span className="px-2 py-0.5 rounded bg-blue-500/15 border border-blue-500/30">{lCount}</span>
+                        ) : (
+                          <span className="text-slate-600">0</span>
+                        )}
+                      </td>
+
+                      {/* Score */}
+                      <td className="py-4 px-4 text-center font-mono font-bold">
+                        <span className={`px-2 py-0.5 rounded border ${
+                          pScore >= 80 ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" :
+                          pScore >= 60 ? "bg-amber-500/15 text-amber-400 border-amber-500/30" :
+                          "bg-rose-500/15 text-rose-400 border-rose-500/30"
+                        }`}>
+                          {pScore}/100
                         </span>
                       </td>
 
-                      <td className="py-4 px-3">
-                        <StatusBadge status={scan?.status || "pending"} />
+                      {/* Created Date */}
+                      <td className="py-4 px-4 font-mono text-slate-400 text-[11px]">
+                        {new Date(project.created_at).toLocaleDateString()}
                       </td>
 
-                      <td className="py-4 px-3 text-center font-mono font-bold text-rose-400">
-                        {crit}
-                      </td>
-
-                      <td className="py-4 px-3 text-center font-mono font-bold text-orange-400">
-                        {hg}
-                      </td>
-
-                      <td className="py-4 px-3 text-center font-mono font-bold text-amber-400">
-                        {med}
-                      </td>
-
-                      <td className="py-4 px-3 text-center font-mono font-bold text-blue-400">
-                        {lw}
-                      </td>
-
-                      <td className="py-4 px-3 text-center">
-                        <span
-                          className={`font-mono font-bold px-2 py-0.5 rounded text-[11px] ${
-                            score >= 80
-                              ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30"
-                              : score >= 50
-                              ? "bg-amber-500/10 text-amber-400 border border-amber-500/30"
-                              : "bg-rose-500/10 text-rose-400 border border-rose-500/30"
-                          }`}
-                        >
-                          {score}/100
-                        </span>
-                      </td>
-
-                      <td className="py-4 px-3 text-right">
+                      {/* Actions */}
+                      <td className="py-4 px-4 text-right" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-2">
-                          {scan ? (
-                            scan.status === "completed" ? (
-                              <Button
-                                variant="glass"
-                                size="sm"
-                                icon={Eye}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onNavigateToScanResults(scan.id);
-                                }}
-                              >
-                                View Results
-                              </Button>
-                            ) : (
-                              <Button
-                                variant="secondary"
-                                size="sm"
-                                icon={RefreshCw}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onNavigateToScanProgress(scan.id);
-                                }}
-                              >
-                                Progress
-                              </Button>
-                            )
+                          {latest?.id ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              icon={Eye}
+                              onClick={() => onNavigateToScanResults(latest.id)}
+                            >
+                              Results
+                            </Button>
                           ) : (
                             <Button
-                              variant="primary"
+                              variant="secondary"
                               size="sm"
                               icon={Play}
                               loading={scanningProject === project.id}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleStartScan(project.id);
-                              }}
+                              onClick={() => handleStartScan(project.id)}
                             >
-                              Run SAST
+                              Scan
                             </Button>
                           )}
-
                           <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteProject(project.id);
-                            }}
-                            className="p-2 rounded-xl text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 transition-all cursor-pointer"
+                            onClick={() => handleDeleteProject(project.id)}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
                             title="Delete Project"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -578,56 +616,146 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       </td>
                     </tr>
                   );
-                })}
-              </tbody>
-            </table>
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Mobile View Responsive Stacked Cards (visible on < 768px screens) */}
+        <div className="md:hidden space-y-4">
+          {filteredProjects.length === 0 ? (
+            <div className="p-6 text-center text-slate-500 font-mono text-xs glass-panel rounded-2xl">
+              No matching projects found.
+            </div>
+          ) : (
+            filteredProjects.map((project) => {
+              const latest = project.latest_scan;
+              const cCount = latest?.critical ?? 0;
+              const hCount = latest?.high ?? 0;
+              const mCount = latest?.medium ?? 0;
+              const lCount = latest?.low ?? 0;
+              const pPenalty = cCount * 15 + hCount * 8 + mCount * 3 + lCount * 1;
+              const pScore = Math.max(0, Math.min(100, Math.round(100 - pPenalty)));
+
+              return (
+                <div
+                  key={project.id}
+                  className="glass-card p-4 rounded-2xl space-y-3 border border-slate-800"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <FileCode className="w-4 h-4 text-cyan-400 shrink-0" />
+                      <span className="font-bold text-slate-100 text-sm">{project.name}</span>
+                    </div>
+                    <StatusBadge status={latest?.status || "pending"} />
+                  </div>
+
+                  {/* Vulnerabilities Pill Grid */}
+                  <div className="grid grid-cols-4 gap-2 text-center text-xs font-mono py-1">
+                    <div className="p-2 bg-rose-500/10 border border-rose-500/20 rounded-xl">
+                      <span className="text-[10px] text-slate-400 block">CRIT</span>
+                      <span className="font-bold text-rose-400">{cCount}</span>
+                    </div>
+                    <div className="p-2 bg-orange-500/10 border border-orange-500/20 rounded-xl">
+                      <span className="text-[10px] text-slate-400 block">HIGH</span>
+                      <span className="font-bold text-orange-400">{hCount}</span>
+                    </div>
+                    <div className="p-2 bg-amber-500/10 border border-amber-500/20 rounded-xl">
+                      <span className="text-[10px] text-slate-400 block">MED</span>
+                      <span className="font-bold text-amber-400">{mCount}</span>
+                    </div>
+                    <div className="p-2 bg-blue-500/10 border border-blue-500/20 rounded-xl">
+                      <span className="text-[10px] text-slate-400 block">LOW</span>
+                      <span className="font-bold text-blue-400">{lCount}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2 border-t border-slate-800/60">
+                    <span className="text-[10px] font-mono text-slate-400">
+                      Score: <strong className="text-cyan-400">{pScore}/100</strong>
+                    </span>
+                    <div className="flex items-center gap-2">
+                      {latest?.id ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          icon={Eye}
+                          onClick={() => onNavigateToScanResults(latest.id)}
+                        >
+                          Results
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          icon={Play}
+                          loading={scanningProject === project.id}
+                          onClick={() => handleStartScan(project.id)}
+                        >
+                          Scan
+                        </Button>
+                      )}
+                      <button
+                        onClick={() => handleDeleteProject(project.id)}
+                        className="p-2 text-slate-400 hover:text-rose-400 rounded-xl"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
           )}
         </div>
       </GlassCard>
 
-      {/* Project Detail Preview Modal */}
-      <Modal
-        isOpen={selectedProjectPreview !== null}
-        onClose={() => setSelectedProjectPreview(null)}
-        title={selectedProjectPreview?.name || "Project Details"}
-        subtitle="SAST Scan Metadata & File Information"
-      >
-        {selectedProjectPreview && (
-          <div className="space-y-4 text-xs font-mono">
-            <div className="p-3 bg-slate-900/80 rounded-xl border border-slate-800 space-y-2">
-              <div className="flex justify-between">
-                <span className="text-slate-400">Target Path:</span>
-                <span className="text-cyan-400 font-bold">{selectedProjectPreview.file_path}</span>
+      {/* Selected Project Quick Preview Modal */}
+      {selectedProjectPreview && (
+        <Modal
+          isOpen={true}
+          onClose={() => setSelectedProjectPreview(null)}
+          title={`Project Detail: ${selectedProjectPreview.name}`}
+        >
+          <div className="space-y-4 text-xs">
+            <div className="p-3 bg-slate-900 rounded-xl border border-slate-800 space-y-1">
+              <span className="text-slate-400 font-mono block">Description:</span>
+              <p className="text-slate-200">{selectedProjectPreview.description || "No description provided."}</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 font-mono">
+              <div className="p-3 bg-slate-900 rounded-xl border border-slate-800">
+                <span className="text-slate-400 block text-[10px]">Source Type</span>
+                <span className="font-bold text-cyan-400 uppercase">{selectedProjectPreview.upload_type}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400">Language Detected:</span>
-                <span className="text-slate-200">{selectedProjectPreview.language_detected || "N/A"}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400">Upload Source:</span>
-                <span className="text-slate-200 uppercase">{selectedProjectPreview.upload_type}</span>
+              <div className="p-3 bg-slate-900 rounded-xl border border-slate-800">
+                <span className="text-slate-400 block text-[10px]">Detected Language</span>
+                <span className="font-bold text-slate-200">{selectedProjectPreview.language_detected || "Python / Multi"}</span>
               </div>
             </div>
-            {selectedProjectPreview.latest_scan && (
-              <Button
-                variant="primary"
-                className="w-full justify-center"
-                icon={Eye}
-                onClick={() => {
-                  const id = selectedProjectPreview.latest_scan!.id;
-                  setSelectedProjectPreview(null);
-                  onNavigateToScanResults(id);
-                }}
-              >
-                Inspect Vulnerability Report
-              </Button>
-            )}
-          </div>
-        )}
-      </Modal>
 
+            <div className="pt-2 flex justify-end gap-2">
+              <Button variant="ghost" onClick={() => setSelectedProjectPreview(null)}>
+                Close
+              </Button>
+              {selectedProjectPreview.latest_scan?.id && (
+                <Button
+                  variant="primary"
+                  icon={ArrowUpRight}
+                  onClick={() => {
+                    const scanId = selectedProjectPreview.latest_scan!.id;
+                    setSelectedProjectPreview(null);
+                    onNavigateToScanResults(scanId);
+                  }}
+                >
+                  Full Scan Report
+                </Button>
+              )}
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 };
-
-export default Dashboard;

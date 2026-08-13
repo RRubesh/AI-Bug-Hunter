@@ -5,7 +5,7 @@ import { GlassCard } from "../components/ui/GlassCard";
 import { Button } from "../components/ui/Button";
 import { 
   Upload, GitBranch, Code, Globe, FileArchive, 
-  AlertCircle, Shield, Cpu, Sparkles, FileText, Play, Check
+  AlertCircle, Shield, Cpu, Sparkles, FileText, Play, Check, ChevronRight
 } from "lucide-react";
 
 interface UploadProjectProps {
@@ -17,7 +17,7 @@ export const UploadProject: React.FC<UploadProjectProps> = ({ onUploadSuccess, o
   // Form State
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [uploadType, setUploadType] = useState<"zip" | "git" | "file" | "url">("zip");
+  const [uploadType, setUploadType] = useState<"zip" | "git" | "url" | "file">("zip");
   
   // Code source inputs
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -78,7 +78,7 @@ export const UploadProject: React.FC<UploadProjectProps> = ({ onUploadSuccess, o
         if (!gitUrl.trim()) throw new Error("Please enter a valid Git Repository URL.");
         formData.append("git_url", gitUrl);
       } else if (uploadType === "url") {
-        if (!gitUrl.trim()) throw new Error("Please enter a valid website or repository URL link.");
+        if (!gitUrl.trim()) throw new Error("Please enter a valid Web Repository link.");
         formData.append("git_url", gitUrl);
       } else if (uploadType === "file") {
         if (!pastedCode.trim()) throw new Error("Pasted source code cannot be empty.");
@@ -94,6 +94,13 @@ export const UploadProject: React.FC<UploadProjectProps> = ({ onUploadSuccess, o
       setLoading(false);
     }
   };
+
+  const tabOptions = [
+    { id: "zip", label: "ZIP Archive", icon: FileArchive, desc: "Upload .zip source code" },
+    { id: "git", label: "Git Repository", icon: GitBranch, desc: "Clone GitHub / GitLab" },
+    { id: "url", label: "Web Repository", icon: Globe, desc: "Remote web repository" },
+    { id: "file", label: "Paste Code", icon: Code, desc: "Direct snippet analysis" },
+  ];
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 animate-fade-in">
@@ -118,7 +125,7 @@ export const UploadProject: React.FC<UploadProjectProps> = ({ onUploadSuccess, o
 
       <form onSubmit={handleSubmit} className="space-y-6">
         
-        {/* SECTION 1: Project Information */}
+        {/* SECTION 1: Project Metadata */}
         <GlassCard className="p-6 space-y-4" topBarGradient={true}>
           <div className="border-b border-slate-800 pb-3">
             <h2 className="text-sm font-bold text-slate-100 uppercase tracking-wider font-mono flex items-center gap-2">
@@ -150,70 +157,52 @@ export const UploadProject: React.FC<UploadProjectProps> = ({ onUploadSuccess, o
                 type="text"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="e.g. Core authentication microservice handling JWT tokens"
+                placeholder="e.g. Audit for secrets, SQLi, and OWASP Top 10"
                 className="w-full px-4 py-3 glass-input rounded-xl text-sm placeholder-slate-600 focus:outline-none"
               />
             </div>
           </div>
         </GlassCard>
 
-        {/* SECTION 2: Code Source Input */}
-        <GlassCard className="p-6 space-y-6">
+        {/* SECTION 2: Code Source Selection Tabs */}
+        <GlassCard className="p-6 space-y-6" topBarGradient={true}>
           <div className="border-b border-slate-800 pb-3">
             <h2 className="text-sm font-bold text-slate-100 uppercase tracking-wider font-mono flex items-center gap-2">
-              <Code className="w-4 h-4 text-cyan-400" /> 2. Source Code Input
+              <Upload className="w-4 h-4 text-cyan-400" /> 2. Source Code Selection
             </h2>
-            <p className="text-xs text-slate-400 mt-1">Select source type and attach project files or repository links.</p>
+            <p className="text-xs text-slate-400 mt-1">Choose how you want to upload code for static analysis.</p>
           </div>
 
-          {/* Upload Method Selector Tabs */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {[
-              { id: "zip", label: "ZIP Archive", icon: FileArchive, desc: "Upload .zip archive" },
-              { id: "git", label: "Git Repository", icon: GitBranch, desc: "Clone from Git URL" },
-              { id: "url", label: "Web Link", icon: Globe, desc: "Analyze web link" },
-              { id: "file", label: "Paste Code", icon: Code, desc: "Direct snippet paste" },
-            ].map((method) => {
-              const Icon = method.icon;
-              const isSelected = uploadType === method.id;
-
+          {/* 4 Touch-friendly Source Tabs */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {tabOptions.map((tab) => {
+              const Icon = tab.icon;
+              const isSelected = uploadType === tab.id;
               return (
                 <button
-                  key={method.id}
                   type="button"
-                  onClick={() => setUploadType(method.id as "zip" | "git" | "file" | "url")}
-                  aria-pressed={isSelected}
-                  className={`group relative min-h-36 overflow-hidden p-4 rounded-2xl text-left border transition-all duration-300 ease-out flex flex-col justify-between focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/80 ${
+                  key={tab.id}
+                  onClick={() => setUploadType(tab.id as any)}
+                  className={`p-4 rounded-xl text-left border transition-all cursor-pointer min-h-[56px] flex flex-col justify-between ${
                     isSelected
-                      ? "bg-gradient-to-br from-cyan-500/20 via-blue-500/10 to-violet-500/15 border-cyan-400/80 text-cyan-300 shadow-[0_14px_30px_-15px_rgba(6,182,212,0.55)]"
-                      : "bg-slate-950/40 border-slate-700/70 text-slate-400 hover:-translate-y-1 hover:border-cyan-500/45 hover:bg-slate-800/70 hover:shadow-[0_12px_28px_-18px_rgba(6,182,212,0.45)]"
+                      ? "bg-gradient-to-br from-cyan-500/20 to-blue-500/15 border-cyan-500/40 text-cyan-300 shadow-lg shadow-cyan-500/10"
+                      : "bg-slate-900/60 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200"
                   }`}
                 >
-                  <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/60 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-                  <div className="flex items-center justify-between w-full mb-3">
-                    <span className={`w-10 h-10 rounded-xl flex items-center justify-center border transition-all duration-300 ${
-                      isSelected
-                        ? "bg-cyan-400/15 border-cyan-300/40 text-cyan-300 shadow-[0_0_18px_rgba(34,211,238,0.22)]"
-                        : "bg-slate-900/80 border-slate-700/70 text-slate-400 group-hover:border-cyan-500/30 group-hover:text-cyan-300"
-                    }`}>
-                      <Icon className="w-5 h-5" />
-                    </span>
-                    {isSelected && (
-                      <span className="w-5 h-5 rounded-full bg-cyan-400 text-slate-950 flex items-center justify-center shadow-[0_0_14px_rgba(34,211,238,0.7)] animate-pulse">
-                        <Check className="w-3.5 h-3.5 stroke-[3]" />
-                      </span>
-                    )}
+                  <div className="flex items-center justify-between w-full">
+                    <Icon className={`w-5 h-5 ${isSelected ? "text-cyan-400" : "text-slate-400"}`} />
+                    {isSelected && <Check className="w-4 h-4 text-cyan-400" />}
                   </div>
-                  <div>
-                    <span className={`text-xs font-bold font-mono block transition-colors ${isSelected ? "text-cyan-100" : "text-slate-200 group-hover:text-cyan-100"}`}>{method.label}</span>
-                    <span className="text-[11px] text-slate-400 mt-1 block leading-relaxed">{method.desc}</span>
+                  <div className="mt-3">
+                    <span className="text-xs font-bold block">{tab.label}</span>
+                    <span className="text-[10px] text-slate-500 font-mono block">{tab.desc}</span>
                   </div>
                 </button>
               );
             })}
           </div>
 
-          {/* Tab 1: ZIP Drag & Drop */}
+          {/* TAB CONTENT: ZIP Upload */}
           {uploadType === "zip" && (
             <div
               onDragOver={(e) => {
@@ -222,12 +211,12 @@ export const UploadProject: React.FC<UploadProjectProps> = ({ onUploadSuccess, o
               }}
               onDragLeave={() => setIsDragOver(false)}
               onDrop={handleFileDrop}
-              className={`border-2 border-dashed rounded-2xl p-8 text-center transition-all duration-300 ${
+              className={`border-2 border-dashed rounded-2xl p-8 text-center transition-all cursor-pointer min-h-[160px] flex flex-col items-center justify-center ${
                 isDragOver
                   ? "border-cyan-400 bg-cyan-500/10"
                   : selectedFile
                   ? "border-emerald-500/40 bg-emerald-500/5"
-                  : "border-slate-800 hover:border-slate-700 bg-slate-900/30"
+                  : "border-slate-800 bg-slate-900/40 hover:border-slate-700"
               }`}
             >
               <input
@@ -235,28 +224,27 @@ export const UploadProject: React.FC<UploadProjectProps> = ({ onUploadSuccess, o
                 accept=".zip"
                 onChange={handleFileChange}
                 className="hidden"
-                id="file-upload"
+                id="zip-file-input"
               />
-              <label htmlFor="file-upload" className="cursor-pointer block space-y-3">
-                <div className="w-14 h-14 rounded-2xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center mx-auto border border-cyan-500/20">
-                  <Upload className="w-7 h-7" />
-                </div>
+              <label htmlFor="zip-file-input" className="cursor-pointer w-full h-full flex flex-col items-center">
                 {selectedFile ? (
-                  <div>
-                    <span className="text-sm font-bold text-emerald-400 block font-mono">
-                      {selectedFile.name}
-                    </span>
-                    <span className="text-xs text-slate-400 mt-1 block">
-                      {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB — Ready to scan
+                  <div className="space-y-2">
+                    <div className="w-12 h-12 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 mx-auto">
+                      <Check className="w-6 h-6" />
+                    </div>
+                    <span className="font-bold text-sm text-slate-100 block">{selectedFile.name}</span>
+                    <span className="text-xs text-slate-400 font-mono block">
+                      {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB • Ready for scan
                     </span>
                   </div>
                 ) : (
-                  <div>
-                    <span className="text-sm font-bold text-slate-200 block">
-                      Drag & Drop ZIP file here, or <span className="text-cyan-400 underline">Browse</span>
+                  <div className="space-y-2">
+                    <Upload className="w-8 h-8 text-cyan-400 mx-auto" />
+                    <span className="text-xs font-bold text-slate-200 block">
+                      Drag & Drop your .zip source archive here, or <span className="text-cyan-400 underline">Browse</span>
                     </span>
-                    <span className="text-xs text-slate-400 mt-1 block font-mono">
-                      Supports .ZIP archives containing source files (.py, .js, .ts, .go, .java, .php, etc.)
+                    <span className="text-[11px] text-slate-500 font-mono block">
+                      Supports Python, JavaScript, TypeScript, Go, Java & C++ zip packages up to 50MB
                     </span>
                   </div>
                 )}
@@ -264,155 +252,166 @@ export const UploadProject: React.FC<UploadProjectProps> = ({ onUploadSuccess, o
             </div>
           )}
 
-          {/* Tab 2 & 3: Git / Web URL Input */}
-          {(uploadType === "git" || uploadType === "url") && (
+          {/* TAB CONTENT: Git Repository URL */}
+          {uploadType === "git" && (
             <div className="space-y-3">
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 font-mono">
-                {uploadType === "git" ? "Git Repository URL" : "Web / Target Link URL"}
+                Git Repository HTTPS / SSH URL
               </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                  {uploadType === "git" ? <GitBranch className="w-4 h-4" /> : <Globe className="w-4 h-4" />}
-                </div>
+              <div className="flex gap-2">
                 <input
                   type="url"
                   value={gitUrl}
                   onChange={(e) => setGitUrl(e.target.value)}
-                  placeholder={
-                    uploadType === "git"
-                      ? "https://github.com/org/security-repository.git"
-                      : "https://example.com/api/endpoint"
-                  }
-                  className="w-full pl-10 pr-4 py-3 glass-input rounded-xl text-sm placeholder-slate-600 focus:outline-none font-mono"
+                  placeholder="https://github.com/organization/secure-api.git"
+                  className="flex-1 px-4 py-3 glass-input rounded-xl text-sm placeholder-slate-600 focus:outline-none"
                 />
               </div>
+              <span className="text-[11px] text-slate-500 font-mono block">
+                The scanner will perform shallow clone & run Gitleaks + Semgrep rules against the head commit.
+              </span>
             </div>
           )}
 
-          {/* Tab 4: Direct Code Paste */}
+          {/* TAB CONTENT: Web Repository URL */}
+          {uploadType === "url" && (
+            <div className="space-y-3">
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 font-mono">
+                Web Repository or Codebase Link
+              </label>
+              <input
+                type="url"
+                value={gitUrl}
+                onChange={(e) => setGitUrl(e.target.value)}
+                placeholder="https://gitlab.com/company/auth-service"
+                className="w-full px-4 py-3 glass-input rounded-xl text-sm placeholder-slate-600 focus:outline-none"
+              />
+              <span className="text-[11px] text-slate-500 font-mono block">
+                Fetches and analyzes web-hosted source code repositories over standard HTTPS.
+              </span>
+            </div>
+          )}
+
+          {/* TAB CONTENT: Paste Source Code */}
           {uploadType === "file" && (
             <div className="space-y-3">
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 font-mono">
                 Paste Source Code Snippet
               </label>
               <textarea
+                rows={8}
                 value={pastedCode}
                 onChange={(e) => setPastedCode(e.target.value)}
-                rows={10}
-                placeholder={`// Paste snippet here for instant SAST analysis...\nfunction authenticateUser(user, pass) {\n  const query = "SELECT * FROM users WHERE username = '" + user + "' AND password = '" + pass + "'";\n  return db.execute(query);\n}`}
-                className="w-full p-4 glass-input rounded-xl font-mono text-xs text-cyan-300 placeholder-slate-600 focus:outline-none leading-relaxed"
+                placeholder={`# Paste python code or API script here...\nimport os\napi_key = "AKIA1234567890EXAMPLE"`}
+                className="w-full p-4 glass-input rounded-xl text-xs font-mono placeholder-slate-600 focus:outline-none leading-relaxed"
               />
+              <span className="text-[11px] text-slate-500 font-mono block">
+                Instant static analysis scan for raw source code snippets up to 10,000 lines.
+              </span>
             </div>
           )}
         </GlassCard>
 
-        {/* SECTION 3: Scanner Engines & AI Model Selection */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          
-          {/* Scanner Engines */}
-          <GlassCard className="p-6 space-y-4">
-            <div className="border-b border-slate-800 pb-3">
-              <h2 className="text-sm font-bold text-slate-100 uppercase tracking-wider font-mono flex items-center gap-2">
-                <Shield className="w-4 h-4 text-cyan-400" /> 3. Security Engine Suite
-              </h2>
-              <p className="text-xs text-slate-400 mt-1">Select active SAST static analysis scanners.</p>
-            </div>
+        {/* SECTION 3: Scanner Engines & AI Model Settings */}
+        <GlassCard className="p-6 space-y-4" topBarGradient={true}>
+          <div className="border-b border-slate-800 pb-3">
+            <h2 className="text-sm font-bold text-slate-100 uppercase tracking-wider font-mono flex items-center gap-2">
+              <Cpu className="w-4 h-4 text-cyan-400" /> 3. Scanner Engines & AI Reasoning Model
+            </h2>
+            <p className="text-xs text-slate-400 mt-1">Configure active SAST engines and local LLM options.</p>
+          </div>
 
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* SAST Scanner Toggles */}
             <div className="space-y-3">
-              {[
-                { id: "gitleaks", name: "Gitleaks Engine", desc: "Hardcoded secret & API key scanner" },
-                { id: "bandit", name: "Bandit AST Analyzer", desc: "Python AST security analysis" },
-                { id: "semgrep", name: "Semgrep SAST Rules", desc: "Multi-language vulnerability patterns" },
-                { id: "dependency", name: "Dependency Audit", desc: "Vulnerable package audit" },
-              ].map((engine) => (
-                <label
-                  key={engine.id}
-                  className="flex items-center justify-between p-3 rounded-xl bg-slate-900/40 border border-slate-800 cursor-pointer hover:border-slate-700 transition-all"
-                >
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="checkbox"
-                      checked={engines[engine.id as keyof typeof engines]}
-                      onChange={(e) =>
-                        setEngines({ ...engines, [engine.id]: e.target.checked })
-                      }
-                      className="w-4 h-4 accent-cyan-500 rounded cursor-pointer"
-                    />
-                    <div>
-                      <span className="text-xs font-bold text-slate-200 block font-mono">{engine.name}</span>
-                      <span className="text-[11px] text-slate-400 block">{engine.desc}</span>
-                    </div>
-                  </div>
-                  <span className="text-[10px] font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                    Active
-                  </span>
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400 font-mono block">
+                Active Security Scanners
+              </span>
+              <div className="grid grid-cols-2 gap-2 text-xs font-mono">
+                <label className="flex items-center gap-2 p-2.5 bg-slate-900/60 rounded-xl border border-slate-800 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={engines.gitleaks}
+                    onChange={(e) => setEngines({ ...engines, gitleaks: e.target.checked })}
+                    className="accent-cyan-500 rounded"
+                  />
+                  <span className="text-slate-200">Gitleaks (Secrets)</span>
                 </label>
-              ))}
-            </div>
-          </GlassCard>
 
-          {/* AI Model Settings */}
-          <GlassCard className="p-6 space-y-4">
-            <div className="border-b border-slate-800 pb-3">
-              <h2 className="text-sm font-bold text-slate-100 uppercase tracking-wider font-mono flex items-center gap-2">
-                <Cpu className="w-4 h-4 text-cyan-400" /> 4. AI Vulnerability Reasoning
-              </h2>
-              <p className="text-xs text-slate-400 mt-1">Configure LLM for automated remediation fixes.</p>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5 font-mono">
-                  AI Provider Engine
+                <label className="flex items-center gap-2 p-2.5 bg-slate-900/60 rounded-xl border border-slate-800 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={engines.bandit}
+                    onChange={(e) => setEngines({ ...engines, bandit: e.target.checked })}
+                    className="accent-cyan-500 rounded"
+                  />
+                  <span className="text-slate-200">Bandit (Python)</span>
                 </label>
-                <div className="p-3 bg-slate-900/60 border border-slate-800 rounded-xl flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-cyan-400" />
-                    <span className="text-xs font-bold text-slate-200 font-mono capitalize">{aiProvider} (Local LLM)</span>
-                  </div>
-                  <span className="text-[10px] font-mono font-bold text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20">
-                    Connected
-                  </span>
-                </div>
-              </div>
 
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5 font-mono">
-                  Reasoning Model
+                <label className="flex items-center gap-2 p-2.5 bg-slate-900/60 rounded-xl border border-slate-800 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={engines.semgrep}
+                    onChange={(e) => setEngines({ ...engines, semgrep: e.target.checked })}
+                    className="accent-cyan-500 rounded"
+                  />
+                  <span className="text-slate-200">Semgrep (AST)</span>
                 </label>
-                <select
-                  value={aiModel}
-                  onChange={(e) => setAiModel(e.target.value)}
-                  className="w-full px-4 py-3 glass-input rounded-xl text-sm focus:outline-none font-mono bg-slate-950"
-                >
-                  <option value="qwen2.5-coder:1.5b">qwen2.5-coder:1.5b (Fast SAST Fixes)</option>
-                  <option value="qwen3-coder:30b">qwen3-coder:30b (Deep Reasoning)</option>
-                  <option value="codellama:13b">codellama:13b (Code Security)</option>
-                </select>
+
+                <label className="flex items-center gap-2 p-2.5 bg-slate-900/60 rounded-xl border border-slate-800 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={engines.dependency}
+                    onChange={(e) => setEngines({ ...engines, dependency: e.target.checked })}
+                    className="accent-cyan-500 rounded"
+                  />
+                  <span className="text-slate-200">Snyk / Safety</span>
+                </label>
               </div>
             </div>
-          </GlassCard>
 
-        </div>
-
-        {/* Submit Actions Bar */}
-        <GlassCard className="p-4 flex items-center justify-between">
-          <Button type="button" variant="ghost" onClick={onCancel}>
-            Cancel
-          </Button>
-
-          <Button
-            type="submit"
-            variant="primary"
-            size="lg"
-            icon={Play}
-            loading={loading}
-            disabled={!name.trim()}
-          >
-            Launch Security Scan
-          </Button>
+            {/* AI Model Selection */}
+            <div className="space-y-3">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400 font-mono block">
+                Local AI Model (Ollama)
+              </span>
+              <select
+                value={aiModel}
+                onChange={(e) => setAiModel(e.target.value)}
+                className="w-full px-4 py-3 glass-input rounded-xl text-xs font-mono focus:outline-none cursor-pointer"
+              >
+                <option value="qwen2.5-coder:1.5b" className="bg-slate-900">
+                  qwen2.5-coder:1.5b (Fast & Precise - Local)
+                </option>
+                <option value="qwen3-coder:30b" className="bg-slate-900">
+                  qwen3-coder:30b (Advanced Deep Code Reasoning)
+                </option>
+                <option value="deepseek-coder:6.7b" className="bg-slate-900">
+                  deepseek-coder:6.7b (Cybersecurity Expert)
+                </option>
+              </select>
+              <span className="text-[11px] text-emerald-400 font-mono flex items-center gap-1">
+                <Sparkles className="w-3.5 h-3.5" /> Ollama Local LLM engine active for zero data exposure.
+              </span>
+            </div>
+          </div>
         </GlassCard>
 
+        {/* Submit Actions Footer */}
+        <div className="flex items-center justify-end gap-3 pt-2">
+          <Button variant="ghost" onClick={onCancel}>
+            Cancel
+          </Button>
+          <Button
+            variant="primary"
+            icon={Play}
+            loading={loading}
+            onClick={handleSubmit}
+            className="min-h-[48px] px-6 text-sm"
+          >
+            Launch SAST Analysis
+          </Button>
+        </div>
       </form>
     </div>
   );

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { api, getMaxUploadSizeMB, getMaxUploadSizeBytes, isCloudDeployment } from "../services/api";
+import { api, getMaxUploadSizeMB, getMaxUploadSizeBytes } from "../services/api";
 import { PageHeader } from "../components/ui/PageHeader";
 import { GlassCard } from "../components/ui/GlassCard";
 import { Button } from "../components/ui/Button";
@@ -44,7 +44,7 @@ export const UploadProject: React.FC<UploadProjectProps> = ({ onUploadSuccess, o
 
   const validateFile = (file: File): boolean => {
     if (file.size > maxBytes) {
-      setError(`File "${file.name}" is ${(file.size / (1024 * 1024)).toFixed(2)} MB, which exceeds the ${maxMB} MB limit for ${isCloudDeployment() ? "cloud serverless deployments" : "upload archives"}. Please compress your source code without node_modules, .git, or venv folders, or use the Git Repository / Paste Code option.`);
+      setError(`File "${file.name}" is ${(file.size / (1024 * 1024)).toFixed(2)} MB, which exceeds the ${maxMB} MB upload limit. Please compress your source code without node_modules, .git, or venv folders, or use the Git Repository / Paste Code option.`);
       return false;
     }
     return true;

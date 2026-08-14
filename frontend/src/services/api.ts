@@ -115,7 +115,7 @@ export const isCloudDeployment = (): boolean => {
 };
 
 export const getMaxUploadSizeMB = (): number => {
-  return isCloudDeployment() ? 4.5 : 50;
+  return 50;
 };
 
 export const getMaxUploadSizeBytes = (): number => {
@@ -135,7 +135,7 @@ const safeJson = async (res: Response) => {
   } catch {
     if (!res.ok) {
       if (res.status === 413) {
-        throw new Error("Uploaded file/payload is too large for the server (HTTP 413). Cloud deployments limit uploads to 4.5 MB per request. Please compress your project into a smaller ZIP (excluding node_modules, .git, and venv) or use the Git Repository / Paste Code option.");
+        throw new Error("Uploaded file/payload is too large for the server (HTTP 413). Upload limit is 50 MB per request. Please compress your project into a smaller ZIP (excluding node_modules, .git, and venv) or use the Git Repository / Paste Code option.");
       }
       if (res.status === 504 || res.status === 502) {
         throw new Error(`Server gateway timeout (HTTP ${res.status}). The requested operation timed out on the cloud server.`);
@@ -146,7 +146,7 @@ const safeJson = async (res: Response) => {
   }
   if (!res.ok) {
     if (res.status === 413) {
-      throw new Error(data.detail || "Uploaded file/payload is too large for the server (HTTP 413). Cloud deployments limit uploads to 4.5 MB per request. Please compress your project into a smaller ZIP (excluding node_modules, .git, and venv) or use the Git Repository / Paste Code option.");
+      throw new Error(data.detail || "Uploaded file/payload is too large for the server (HTTP 413). Upload limit is 50 MB per request. Please compress your project into a smaller ZIP (excluding node_modules, .git, and venv) or use the Git Repository / Paste Code option.");
     }
     throw new Error(data.detail || `HTTP ${res.status} error from backend`);
   }

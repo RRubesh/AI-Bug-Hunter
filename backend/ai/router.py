@@ -10,10 +10,10 @@ from typing import List
 router = APIRouter(prefix="/ai", tags=["AI Security Assistant"])
 
 def get_current_active_paid_or_admin(current_user: User = Depends(get_current_user)) -> User:
-    if current_user.role not in ("admin", "paid"):
+    if current_user.role not in ("admin", "paid", "developer", "user", "member"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="AI features are only available to premium/paid accounts. Please upgrade your plan."
+            detail="AI features are only available to authenticated accounts."
         )
     return current_user
 

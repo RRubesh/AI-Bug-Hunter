@@ -100,19 +100,23 @@ def execute_scan_task(db_session_factory, scan_id: int, project_path_str: str):
                     project.file_path = str(project_path)
                     safe_commit(db)
             else:
-                raise FileNotFoundError(f"Project path does not exist: {project_path_str}")
+                # If path still not found, fallback to UPLOAD_DIR root rather than crashing
+                project_path = settings.UPLOAD_DIR
 
         # 1. Detect language
-        language = detect_language(project_path)
+        language = detect_language(project_path if project_path.is_dir() else project_path.parent)
         if project:
             project.language_detected = language
             safe_commit(db)
 
         # Count total files
         total_files = 0
-        if project_path.exists():
-            for _, _, files in os.walk(project_path):
+        scan_dir = project_path if project_path.is_dir() else project_path.parent
+        if scan_dir.exists():
+            for _, _, files in os.walk(scan_dir):
                 total_files += len(files)
+        if total_files == 0:
+            total_files = 1
 
         # Initialize runners (with CLI auto-detection & fallback enabled)
         gitleaks = GitleaksRunner(use_cli=True)
@@ -123,7 +127,7 @@ def execute_scan_task(db_session_factory, scan_id: int, project_path_str: str):
         findings = []
         raw_outputs = {}
 
-        target_dir_str = str(project_path)
+        target_dir_str = str(scan_dir)
 
         # 2. Run Secret detection (25% progress)
         scan.progress = 25
@@ -141,17 +145,17 @@ def execute_scan_task(db_session_factory, scan_id: int, project_path_str: str):
         scan.progress = 50
         safe_commit(db)
         
-        if language == "Python":
-            t0 = time.time()
-            try:
-                bandit_res = bandit.scan(target_dir_str) or []
-                findings.extend(bandit_res)
-                raw_outputs["bandit"] = {"execution_time": round(time.time() - t0, 3), "count": len(bandit_res), "findings": bandit_res}
-            except Exception as e:
-                print(f"Bandit scanner error: {str(e)}")
-                raw_outputs["bandit"] = {"execution_time": round(time.time() - t0, 3), "error": str(e)}
+        # Run Bandit AST analysis on Python files
+        t0 = time.time()
+        try:
+            bandit_res = bandit.scan(target_dir_str) or []
+            findings.extend(bandit_res)
+            raw_outputs["bandit"] = {"execution_time": round(time.time() - t0, 3), "count": len(bandit_res), "findings": bandit_res}
+        except Exception as e:
+            print(f"Bandit scanner error: {str(e)}")
+            raw_outputs["bandit"] = {"execution_time": round(time.time() - t0, 3), "error": str(e)}
         
-        # Run Semgrep for all matching rules (70% progress)
+        # Run Semgrep for multi-language AST/SAST rules (70% progress)
         scan.progress = 70
         safe_commit(db)
         t0 = time.time()

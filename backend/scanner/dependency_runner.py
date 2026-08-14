@@ -98,6 +98,8 @@ class DependencyRunner:
     def scan(self, target_dir: str) -> List[Dict[str, Any]]:
         findings = []
         target_path = Path(target_dir)
+        if target_path.is_file():
+            target_path = target_path.parent
 
         # 1. Look for package.json
         package_json_path = target_path / "package.json"

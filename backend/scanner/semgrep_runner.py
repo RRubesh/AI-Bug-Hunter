@@ -201,13 +201,24 @@ class SemgrepRunner:
         # 2. Native Multi-Language Rule Fallback Scanner
         import re
         
-        for root, _, files in os.walk(target_path):
+        walk_items = []
+        if target_path.is_file():
+            walk_items = [(str(target_path.parent), [], [target_path.name])]
+        elif target_path.is_dir():
+            walk_items = os.walk(target_path)
+        else:
+            return findings
+
+        for root, _, files in walk_items:
             for file in files:
                 ext = Path(file).suffix.lower()
                 if ext in LANGUAGE_RULES:
                     full_path = Path(root) / file
                     try:
-                        relative_path = full_path.relative_to(target_path).as_posix()
+                        if target_path.is_file():
+                            relative_path = target_path.name
+                        else:
+                            relative_path = full_path.relative_to(target_path).as_posix()
                     except Exception:
                         try:
                             relative_path = os.path.relpath(str(full_path), str(target_path)).replace('\\', '/')
@@ -215,7 +226,6 @@ class SemgrepRunner:
                             relative_path = file
                     rules = LANGUAGE_RULES[ext]
 
-                    
                     try:
                         with open(full_path, "r", encoding="utf-8", errors="ignore") as f:
                             lines = f.readlines()

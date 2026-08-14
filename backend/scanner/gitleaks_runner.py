@@ -122,22 +122,32 @@ class GitleaksRunner:
                 print(f"Gitleaks CLI error: {str(e)}. Falling back to regex scanner.")
 
         # 2. Native Regex Scanner (Highly robust fallback)
-        for root, _, files in os.walk(target_path):
+        walk_items = []
+        if target_path.is_file():
+            walk_items = [(str(target_path.parent), [], [target_path.name])]
+        elif target_path.is_dir():
+            walk_items = os.walk(target_path)
+        else:
+            return findings
+
+        for root, _, files in walk_items:
             for file in files:
                 # Skip non-text files or dotfiles or large files
-                if file.startswith('.') or file.endswith(('.png', '.jpg', '.jpeg', '.zip', '.pdf', '.exe', '.db', '.pyc')):
+                if file.startswith('.') or file.endswith(('.png', '.jpg', '.jpeg', '.zip', '.pdf', '.exe', '.db', '.pyc', '.gif', '.svg')):
                     continue
                 
                 full_path = Path(root) / file
                 try:
-                    relative_path = full_path.relative_to(target_path).as_posix()
+                    if target_path.is_file():
+                        relative_path = target_path.name
+                    else:
+                        relative_path = full_path.relative_to(target_path).as_posix()
                 except Exception:
                     try:
                         relative_path = os.path.relpath(str(full_path), str(target_path)).replace('\\', '/')
                     except Exception:
                         relative_path = file
 
-                
                 try:
                     # Skip files > 5MB to avoid hang
                     if full_path.stat().st_size > 5 * 1024 * 1024:

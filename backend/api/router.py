@@ -79,43 +79,54 @@ def create_project(
     
     file_path = str(project_dir)
 
-    # 1. Handle single file paste
+    # 1. Handle single file paste or direct source file upload
     if upload_type == "file":
-        if not pasted_code:
-            raise HTTPException(status_code=400, detail="Pasted code cannot be empty")
-        # Detect appropriate extension based on the pasted code content
-        filename = detect_pasted_code_filename(pasted_code)
-        dest_file = project_dir / filename
-        with open(dest_file, "w", encoding="utf-8") as f:
-            f.write(pasted_code)
+        if file:
+            filename = file.filename or "main.py"
+            dest_file = project_dir / filename
+            with open(dest_file, "wb") as buffer:
+                shutil.copyfileobj(file.file, buffer)
+        elif pasted_code:
+            filename = detect_pasted_code_filename(pasted_code)
+            dest_file = project_dir / filename
+            with open(dest_file, "w", encoding="utf-8") as f:
+                f.write(pasted_code)
+        else:
+            raise HTTPException(status_code=400, detail="Pasted code or source file cannot be empty")
             
-    # 2. Handle ZIP Upload
+    # 2. Handle ZIP or direct file upload
     elif upload_type == "zip":
         if not file:
-            raise HTTPException(status_code=400, detail="ZIP file upload is required")
-        zip_path = project_dir / "upload.zip"
-        with open(zip_path, "wb") as buffer:
+            raise HTTPException(status_code=400, detail="Source file or ZIP archive upload is required")
+        
+        orig_filename = file.filename or "upload.zip"
+        saved_file_path = project_dir / orig_filename
+        with open(saved_file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
         
-        # Extract files
-        try:
-            import zipfile
-            ignored_dirs = {"node_modules", ".git", "__pycache__", "venv", ".venv", ".next", "dist", "build"}
-            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-                # Safeguard: prevent directory traversal attacks & skip bloated dependency directories
-                for member in zip_ref.infolist():
-                    filename = Path(member.filename)
-                    if ".." in filename.parts or filename.is_absolute():
-                        continue
-                    parts = {p.lower() for p in filename.parts}
-                    if parts & ignored_dirs:
-                        continue
-                    zip_ref.extract(member, project_dir)
-            # Remove zip archive after extraction
-            zip_path.unlink()
-        except Exception as e:
-            shutil.rmtree(project_dir)
-            raise HTTPException(status_code=400, detail=f"Failed to extract ZIP archive: {str(e)}")
+        # Check if the uploaded file is indeed a ZIP archive
+        import zipfile
+        if zipfile.is_zipfile(saved_file_path):
+            try:
+                ignored_dirs = {"node_modules", ".git", "__pycache__", "venv", ".venv", ".next", "dist", "build"}
+                with zipfile.ZipFile(saved_file_path, 'r') as zip_ref:
+                    for member in zip_ref.infolist():
+                        filename = Path(member.filename)
+                        if ".." in filename.parts or filename.is_absolute():
+                            continue
+                        parts = {p.lower() for p in filename.parts}
+                        if parts & ignored_dirs:
+                            continue
+                        zip_ref.extract(member, project_dir)
+                # Remove zip archive after successful extraction
+                saved_file_path.unlink(missing_ok=True)
+            except Exception as e:
+                shutil.rmtree(project_dir, ignore_errors=True)
+                raise HTTPException(status_code=400, detail=f"Failed to extract ZIP archive: {str(e)}")
+        else:
+            # It's a single source code file uploaded under the file/zip tab (e.g. main.py, app.js)
+            # It is already saved at saved_file_path!
+            pass
 
     # 3. Handle Git Repository
     elif upload_type == "git":
@@ -128,7 +139,7 @@ def create_project(
             if res.returncode != 0:
                 raise Exception(res.stderr)
         except Exception as e:
-            shutil.rmtree(project_dir)
+            shutil.rmtree(project_dir, ignore_errors=True)
             raise HTTPException(status_code=400, detail=f"Failed to clone Git Repository: {str(e)}")
 
     # 4. Handle Website/URL Link Ingestion

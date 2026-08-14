@@ -70,10 +70,12 @@ export const ScanProgress: React.FC<ScanProgressProps> = ({ scanId, onScanComple
 
   useEffect(() => {
     const timer: { id: ReturnType<typeof setInterval> | null } = { id: null };
+    let consecutiveErrors = 0;
     
     const checkProgress = async () => {
       try {
         const data = await api.getScan(scanId);
+        consecutiveErrors = 0;
         setScan(data);
         updateLogs(data.progress, data.status);
 
@@ -87,9 +89,13 @@ export const ScanProgress: React.FC<ScanProgressProps> = ({ scanId, onScanComple
           setError("Scan operation failed. Please check backend logs or try again.");
         }
       } catch (err: unknown) {
-        if (timer.id) clearInterval(timer.id);
-        const errMsg = err instanceof Error ? err.message : String(err);
-        setError("Error tracking progress: " + errMsg);
+        consecutiveErrors++;
+        // Only terminate polling if 4 consecutive poll requests fail
+        if (consecutiveErrors >= 4) {
+          if (timer.id) clearInterval(timer.id);
+          const errMsg = err instanceof Error ? err.message : String(err);
+          setError("Error tracking progress: " + errMsg);
+        }
       }
     };
 

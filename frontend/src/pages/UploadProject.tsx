@@ -1,12 +1,13 @@
 import React, { useState } from "react";
-import { api, getMaxUploadSizeMB, getMaxUploadSizeBytes } from "../services/api";
+import { api, getMaxUploadSizeMB, getMaxUploadSizeBytes, isCloudDeployment } from "../services/api";
+import { optimizeZipFile, type ZipOptimizationResult } from "../utils/zipOptimizer";
 import { PageHeader } from "../components/ui/PageHeader";
 import { GlassCard } from "../components/ui/GlassCard";
 import { Button } from "../components/ui/Button";
 import { 
   Upload, GitBranch, Code, Globe, FileArchive, 
   AlertCircle, Cpu, Sparkles, FileText, Play, Check,
-  FileCode2, Flame
+  FileCode2, Flame, Zap, RefreshCw, ArrowRight
 } from "lucide-react";
 
 interface UploadProjectProps {
@@ -87,6 +88,8 @@ export const UploadProject: React.FC<UploadProjectProps> = ({ onUploadSuccess, o
   
   // Code source inputs
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [optimizationResult, setOptimizationResult] = useState<ZipOptimizationResult | null>(null);
+  const [optimizingZip, setOptimizingZip] = useState(false);
   const [gitUrl, setGitUrl] = useState("");
   const [pastedCode, setPastedCode] = useState("");
   const [isDragOver, setIsDragOver] = useState(false);
@@ -107,40 +110,53 @@ export const UploadProject: React.FC<UploadProjectProps> = ({ onUploadSuccess, o
 
   const maxMB = getMaxUploadSizeMB();
   const maxBytes = getMaxUploadSizeBytes();
+  const isCloud = isCloudDeployment();
 
-  const validateFile = (file: File): boolean => {
-    if (file.size > maxBytes) {
-      setError(`File "${file.name}" is ${(file.size / (1024 * 1024)).toFixed(2)} MB, which exceeds the ${maxMB} MB upload limit. Please compress your source code without node_modules, .git, or venv folders.`);
-      return false;
+  const processFileSelection = async (file: File) => {
+    setError("");
+    setSelectedFile(file);
+    setOptimizationResult(null);
+
+    // Auto-generate project name from filename
+    if (!name.trim()) {
+      const cleanName = file.name.replace(/\.[^/.]+$/, "").replace(/[^a-zA-Z0-9_-]/g, "_");
+      setName(cleanName || "Uploaded-Project");
     }
-    return true;
+
+    // Run in-browser ZIP optimization for .zip archives
+    if (file.name.toLowerCase().endsWith(".zip") || file.type.includes("zip")) {
+      setOptimizingZip(true);
+      try {
+        const result = await optimizeZipFile(file);
+        setOptimizationResult(result);
+        setSelectedFile(result.file);
+
+        if (result.file.size > maxBytes) {
+          setError(`Even after stripping node_modules/bloat, file is ${(result.file.size / (1024 * 1024)).toFixed(2)} MB (limit: ${maxMB} MB on cloud serverless). Switch to the Git Repository tab to clone and scan this repo with no size limits!`);
+        }
+      } catch (err) {
+        console.error("ZIP optimization error:", err);
+      } finally {
+        setOptimizingZip(false);
+      }
+    } else {
+      if (file.size > maxBytes) {
+        setError(`File "${file.name}" is ${(file.size / (1024 * 1024)).toFixed(2)} MB, which exceeds the ${maxMB} MB cloud upload limit.`);
+      }
+    }
   };
 
   const handleFileDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDragOver(false);
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      const file = e.dataTransfer.files[0];
-      setSelectedFile(file);
-      setError("");
-      validateFile(file);
-      if (!name.trim()) {
-        const cleanName = file.name.replace(/\.[^/.]+$/, "").replace(/[^a-zA-Z0-9_-]/g, "_");
-        setName(cleanName || "Uploaded-Project");
-      }
+      processFileSelection(e.dataTransfer.files[0]);
     }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      const file = e.target.files[0];
-      setSelectedFile(file);
-      setError("");
-      validateFile(file);
-      if (!name.trim()) {
-        const cleanName = file.name.replace(/\.[^/.]+$/, "").replace(/[^a-zA-Z0-9_-]/g, "_");
-        setName(cleanName || "Uploaded-Project");
-      }
+      processFileSelection(e.target.files[0]);
     }
   };
 
@@ -154,7 +170,7 @@ export const UploadProject: React.FC<UploadProjectProps> = ({ onUploadSuccess, o
 
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (loading) return; // Prevent double execution
+    if (loading || optimizingZip) return; // Prevent double execution
 
     let effectiveName = name.trim();
 
@@ -189,7 +205,7 @@ export const UploadProject: React.FC<UploadProjectProps> = ({ onUploadSuccess, o
           throw new Error("Please select or drop a source code file (.py, .js, .ts, etc.) or a .ZIP archive to scan.");
         }
         if (selectedFile.size > maxBytes) {
-          throw new Error(`File "${selectedFile.name}" is ${(selectedFile.size / (1024 * 1024)).toFixed(2)} MB, which exceeds the ${maxMB} MB upload limit.`);
+          throw new Error(`File "${selectedFile.name}" is ${(selectedFile.size / (1024 * 1024)).toFixed(2)} MB, which exceeds the ${maxMB} MB upload limit. Please use the Git Repository tab to scan this repository.`);
         }
         formData.append("file", selectedFile);
       } else if (uploadType === "git") {
@@ -352,8 +368,18 @@ export const UploadProject: React.FC<UploadProjectProps> = ({ onUploadSuccess, o
                 id="source-file-input"
               />
               <label htmlFor="source-file-input" className="cursor-pointer w-full h-full flex flex-col items-center">
-                {selectedFile ? (
-                  <div className="space-y-2">
+                {optimizingZip ? (
+                  <div className="space-y-3 py-4 animate-pulse">
+                    <div className="w-12 h-12 rounded-full border border-cyan-500/40 bg-cyan-500/10 text-cyan-400 flex items-center justify-center mx-auto">
+                      <RefreshCw className="w-6 h-6 animate-spin" />
+                    </div>
+                    <span className="font-bold text-sm text-cyan-300 block">⚡ Optimizing Code Archive in Browser...</span>
+                    <span className="text-xs text-slate-400 font-mono block">
+                      Stripping bloated node_modules, .git, and binaries for instant Vercel cloud upload...
+                    </span>
+                  </div>
+                ) : selectedFile ? (
+                  <div className="space-y-3 w-full max-w-lg mx-auto">
                     <div className={`w-12 h-12 rounded-full border flex items-center justify-center mx-auto ${
                       selectedFile.size > maxBytes
                         ? "bg-rose-500/20 border-rose-500/40 text-rose-400"
@@ -361,17 +387,53 @@ export const UploadProject: React.FC<UploadProjectProps> = ({ onUploadSuccess, o
                     }`}>
                       {selectedFile.size > maxBytes ? <AlertCircle className="w-6 h-6" /> : <Check className="w-6 h-6" />}
                     </div>
-                    <span className="font-bold text-sm text-slate-100 block">{selectedFile.name}</span>
-                    {selectedFile.size > maxBytes ? (
-                      <span className="text-xs text-rose-400 font-mono block font-semibold">
-                        ⚠️ {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB • Exceeds {maxMB} MB limit
-                      </span>
-                    ) : (
-                      <span className="text-xs text-emerald-400 font-mono block">
-                        {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB • Ready for SAST scan
-                      </span>
-                    )}
-                    <span className="text-[10px] text-cyan-400 underline block pt-1">
+
+                    <div>
+                      <span className="font-bold text-sm text-slate-100 block truncate">{selectedFile.name}</span>
+                      
+                      {optimizationResult && optimizationResult.isOptimized && (
+                        <div className="mt-2 p-2.5 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-left text-xs font-mono space-y-1">
+                          <div className="flex items-center justify-between font-bold text-emerald-300">
+                            <span className="flex items-center gap-1.5"><Zap className="w-3.5 h-3.5 text-emerald-400" /> Auto-Optimized In-Browser</span>
+                            <span className="bg-emerald-500/20 px-2 py-0.5 rounded text-[11px]">-{optimizationResult.savingsPercent}% Size</span>
+                          </div>
+                          <div className="text-slate-300 text-[11px] flex justify-between">
+                            <span>{optimizationResult.originalSizeMB} MB ➔ {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB</span>
+                            <span className="text-slate-400">Stripped {optimizationResult.excludedFilesCount} bloat files</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {selectedFile.size > maxBytes ? (
+                        <div className="mt-3 p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-xs space-y-2">
+                          <span className="text-rose-400 font-mono block font-semibold">
+                            ⚠️ {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB exceeds {maxMB} MB Cloud Serverless limit
+                          </span>
+                          <p className="text-slate-300 text-[11px]">
+                            Vercel Serverless Functions have a 4.5 MB request limit. For larger codebases, clone directly via Git without size constraints:
+                          </p>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setUploadType("git");
+                              setError("");
+                            }}
+                            className="w-full py-2 px-3 bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/40 text-cyan-200 rounded-lg font-mono font-bold text-xs flex items-center justify-center gap-2 cursor-pointer transition-all hover:scale-[1.02]"
+                          >
+                            <GitBranch className="w-4 h-4 text-cyan-400" />
+                            <span>Switch to Git Repository Clone</span>
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-emerald-400 font-mono block mt-1.5">
+                          {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB • Ready for SAST scan
+                        </span>
+                      )}
+                    </div>
+
+                    <span className="text-[11px] text-cyan-400 hover:text-cyan-300 underline block pt-1">
                       Click to choose a different file
                     </span>
                   </div>
@@ -382,8 +444,13 @@ export const UploadProject: React.FC<UploadProjectProps> = ({ onUploadSuccess, o
                       Drag & Drop your .zip source archive or source code file here, or <span className="text-cyan-400 underline">Browse</span>
                     </span>
                     <span className="text-[11px] text-slate-500 font-mono block">
-                      Supports Python, JS, TS, Go, Java, C++, PHP, and .ZIP packages up to {maxMB} MB
+                      Supports Python, JS, TS, Go, Java, C++, PHP, and .ZIP packages (Auto-optimizes node_modules & bloat)
                     </span>
+                    {isCloud && (
+                      <span className="text-[10px] text-cyan-400/80 font-mono block bg-slate-950/40 py-1 px-3 rounded-full border border-slate-800/80 w-fit mx-auto">
+                        ☁️ Cloud Serverless Optimized (Auto-filters node_modules & binaries)
+                      </span>
+                    )}
                   </div>
                 )}
               </label>

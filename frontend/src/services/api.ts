@@ -111,11 +111,12 @@ const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, ""
 
 export const isCloudDeployment = (): boolean => {
   const url = API_BASE_URL || (typeof window !== "undefined" ? window.location.href : "");
-  return url.includes("vercel.app") || url.includes("render.com");
+  return url.includes("vercel.app") || url.includes("render.com") || url.includes("railway.app") || (!url.includes("localhost") && !url.includes("127.0.0.1") && url.startsWith("http"));
 };
 
 export const getMaxUploadSizeMB = (): number => {
-  return 50;
+  // Vercel serverless request body has a 4.5 MB hard limit
+  return isCloudDeployment() ? 4.5 : 50;
 };
 
 export const getMaxUploadSizeBytes = (): number => {
@@ -135,7 +136,8 @@ const safeJson = async (res: Response) => {
   } catch {
     if (!res.ok) {
       if (res.status === 413) {
-        throw new Error("Uploaded file/payload is too large for the server (HTTP 413). Upload limit is 50 MB per request. Please compress your project into a smaller ZIP (excluding node_modules, .git, and venv) or use the Git Repository / Paste Code option.");
+        const limitMB = getMaxUploadSizeMB();
+        throw new Error(`Uploaded file/payload is too large for the cloud server (HTTP 413). Cloud serverless upload limit is ${limitMB} MB per request. Our in-browser optimizer automatically strips node_modules and binaries, or you can use the Git Repository tab to clone repositories of any size.`);
       }
       if (res.status === 504 || res.status === 502) {
         throw new Error(`Server gateway timeout (HTTP ${res.status}). The requested operation timed out on the cloud server.`);
@@ -146,7 +148,8 @@ const safeJson = async (res: Response) => {
   }
   if (!res.ok) {
     if (res.status === 413) {
-      throw new Error(data.detail || "Uploaded file/payload is too large for the server (HTTP 413). Upload limit is 50 MB per request. Please compress your project into a smaller ZIP (excluding node_modules, .git, and venv) or use the Git Repository / Paste Code option.");
+      const limitMB = getMaxUploadSizeMB();
+      throw new Error(data.detail || `Uploaded file/payload is too large for the cloud server (HTTP 413). Cloud serverless upload limit is ${limitMB} MB per request. Our in-browser optimizer automatically strips node_modules and binaries, or you can use the Git Repository tab to clone repositories of any size.`);
     }
     throw new Error(data.detail || `HTTP ${res.status} error from backend`);
   }

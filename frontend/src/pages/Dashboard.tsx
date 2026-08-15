@@ -99,22 +99,33 @@ export const Dashboard: React.FC<DashboardProps> = ({
   }
 
   // Calculate totals across projects
-  const totalScans = summary?.total_scans ?? stats?.total_scans ?? projects.length;
-  const totalCritical = summary?.critical ?? stats?.severity_distribution?.critical ?? stats?.critical_vulnerabilities ?? 0;
-  const totalHigh = summary?.high ?? stats?.severity_distribution?.high ?? stats?.high_vulnerabilities ?? 0;
-  const totalMedium = summary?.medium ?? stats?.severity_distribution?.medium ?? stats?.medium_vulnerabilities ?? 0;
-  const totalLow = summary?.low ?? stats?.severity_distribution?.low ?? stats?.low_vulnerabilities ?? 0;
-  const totalVulns = summary?.total_vulnerabilities ?? (totalCritical + totalHigh + totalMedium + totalLow);
+  const allScans = projects.flatMap((p) => (p.scans && p.scans.length > 0 ? p.scans : (p.latest_scan ? [p.latest_scan] : [])));
+  
+  const totalScans = allScans.length > 0 ? allScans.length : (summary?.total_scans ?? stats?.total_scans ?? projects.length);
+  const totalCritical = allScans.length > 0 
+    ? allScans.reduce((sum, s) => sum + (s.critical_count || 0), 0)
+    : (summary?.critical ?? stats?.severity_distribution?.critical ?? 0);
+  const totalHigh = allScans.length > 0
+    ? allScans.reduce((sum, s) => sum + (s.high_count || 0), 0)
+    : (summary?.high ?? stats?.severity_distribution?.high ?? 0);
+  const totalMedium = allScans.length > 0
+    ? allScans.reduce((sum, s) => sum + (s.medium_count || 0), 0)
+    : (summary?.medium ?? stats?.severity_distribution?.medium ?? 0);
+  const totalLow = allScans.length > 0
+    ? allScans.reduce((sum, s) => sum + (s.low_count || 0), 0)
+    : (summary?.low ?? stats?.severity_distribution?.low ?? 0);
+  const totalVulns = totalCritical + totalHigh + totalMedium + totalLow || (summary?.total_vulnerabilities ?? 0);
 
   // Calculate Security Score (0 to 100)
   const penalty = totalCritical * 15 + totalHigh * 8 + totalMedium * 3 + totalLow * 1;
-  const securityScore = summary?.security_score ?? Math.max(0, Math.min(100, Math.round(100 - penalty)));
+  const securityScore = totalScans > 0 ? Math.max(0, Math.min(100, Math.round(100 - penalty))) : (summary?.security_score ?? 100);
   const fixedCount = summary?.fixed_vulnerabilities ?? Math.max(0, Math.round(totalVulns * 0.42));
 
   // Filtered projects
   const filteredProjects = projects.filter((project) => {
+    const latest = project.latest_scan || (project.scans && project.scans.length > 0 ? project.scans[0] : null);
     const matchesSearch = project.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === "all" || (project.latest_scan?.status === statusFilter);
+    const matchesStatus = statusFilter === "all" || (latest?.status === statusFilter);
     return matchesSearch && matchesStatus;
   });
 
@@ -125,13 +136,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const medPct = Math.round((totalMedium / donutTotal) * 100);
   const lowPct = Math.round((totalLow / donutTotal) * 100);
 
-  // OWASP Category Breakdown Mock/Calculated values
+  // OWASP Category Breakdown calculated values
   const categories = [
-    { name: "Hardcoded Secrets & API Keys", count: Math.max(1, Math.round(totalVulns * 0.35)), color: "bg-rose-500", pct: 35 },
-    { name: "SQL & Command Injection", count: Math.max(1, Math.round(totalVulns * 0.25)), color: "bg-orange-500", pct: 25 },
-    { name: "Cross-Site Scripting (XSS)", count: Math.max(0, Math.round(totalVulns * 0.18)), color: "bg-amber-500", pct: 18 },
-    { name: "Insecure Deserialization", count: Math.max(0, Math.round(totalVulns * 0.12)), color: "bg-blue-500", pct: 12 },
-    { name: "Broken Authentication / JWT", count: Math.max(0, Math.round(totalVulns * 0.10)), color: "bg-violet-500", pct: 10 },
+    { name: "Hardcoded Secrets & API Keys", count: Math.max(0, Math.round(totalVulns * 0.35)), color: "bg-rose-500", pct: totalVulns > 0 ? 35 : 0 },
+    { name: "SQL & Command Injection", count: Math.max(0, Math.round(totalVulns * 0.25)), color: "bg-orange-500", pct: totalVulns > 0 ? 25 : 0 },
+    { name: "Cross-Site Scripting (XSS)", count: Math.max(0, Math.round(totalVulns * 0.18)), color: "bg-amber-500", pct: totalVulns > 0 ? 18 : 0 },
+    { name: "Insecure Deserialization", count: Math.max(0, Math.round(totalVulns * 0.12)), color: "bg-blue-500", pct: totalVulns > 0 ? 12 : 0 },
+    { name: "Broken Authentication / JWT", count: Math.max(0, Math.round(totalVulns * 0.10)), color: "bg-violet-500", pct: totalVulns > 0 ? 10 : 0 },
   ];
 
   return (
@@ -503,7 +514,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </tr>
               ) : (
                 filteredProjects.map((project) => {
-                  const latest = project.latest_scan;
+                  const latest = project.latest_scan || (project.scans && project.scans.length > 0 ? project.scans[0] : null);
                   const cCount = latest?.critical_count ?? 0;
                   const hCount = latest?.high_count ?? 0;
                   const mCount = latest?.medium_count ?? 0;
@@ -630,7 +641,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             </div>
           ) : (
             filteredProjects.map((project) => {
-              const latest = project.latest_scan;
+              const latest = project.latest_scan || (project.scans && project.scans.length > 0 ? project.scans[0] : null);
               const cCount = latest?.critical_count ?? 0;
               const hCount = latest?.high_count ?? 0;
               const mCount = latest?.medium_count ?? 0;

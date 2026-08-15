@@ -369,7 +369,7 @@ def get_scan(scan_id: int, current_user: User = Depends(get_current_user), db: S
     scan = db.query(Scan).filter(Scan.id == scan_id).first()
     if not scan:
         raise HTTPException(status_code=404, detail="Scan session not found")
-    if scan.project.owner_id != current_user.id and current_user.role != "admin":
+    if scan.project and scan.project.owner_id != current_user.id and current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Not authorized to access this scan")
 
     return scan
@@ -379,7 +379,7 @@ def cancel_scan(scan_id: int, current_user: User = Depends(get_current_user), db
     scan = db.query(Scan).filter(Scan.id == scan_id).first()
     if not scan:
         raise HTTPException(status_code=404, detail="Scan session not found")
-    if scan.project.owner_id != current_user.id and current_user.role != "admin":
+    if scan.project and scan.project.owner_id != current_user.id and current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Not authorized")
 
     scan.status = "cancelled"
@@ -407,7 +407,7 @@ def delete_scan(scan_id: int, current_user: User = Depends(get_current_user), db
     scan = db.query(Scan).filter(Scan.id == scan_id).first()
     if not scan:
         raise HTTPException(status_code=404, detail="Scan session not found")
-    if scan.project.owner_id != current_user.id and current_user.role != "admin":
+    if scan.project and scan.project.owner_id != current_user.id and current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Not authorized")
 
     db.delete(scan)
@@ -433,7 +433,7 @@ def get_vulnerabilities(scan_id: int, current_user: User = Depends(get_current_u
     scan = db.query(Scan).filter(Scan.id == scan_id).first()
     if not scan:
         raise HTTPException(status_code=404, detail="Scan session not found")
-    if scan.project.owner_id != current_user.id and current_user.role != "admin":
+    if scan.project and scan.project.owner_id != current_user.id and current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Not authorized to access this scan")
 
     return db.query(Vulnerability).filter(Vulnerability.scan_id == scan_id).all()
@@ -455,7 +455,7 @@ def get_vulnerability_detail(vuln_id: int, current_user: User = Depends(get_curr
     vuln = db.query(Vulnerability).filter(Vulnerability.id == vuln_id).first()
     if not vuln:
         raise HTTPException(status_code=404, detail="Vulnerability not found")
-    if vuln.scan.project.owner_id != current_user.id and current_user.role != "admin":
+    if vuln.scan and vuln.scan.project and vuln.scan.project.owner_id != current_user.id and current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Not authorized")
 
     return vuln
@@ -473,7 +473,7 @@ def update_vulnerability_status(
     vuln = db.query(Vulnerability).filter(Vulnerability.id == vuln_id).first()
     if not vuln:
         raise HTTPException(status_code=404, detail="Vulnerability finding not found")
-    if vuln.scan.project.owner_id != current_user.id and current_user.role != "admin":
+    if vuln.scan and vuln.scan.project and vuln.scan.project.owner_id != current_user.id and current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Not authorized")
 
     vuln.status = vuln_update.status

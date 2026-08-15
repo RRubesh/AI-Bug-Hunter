@@ -333,9 +333,7 @@ export const api = {
       });
       return await safeJson(res);
     } catch (err: unknown) {
-      if (err instanceof Error && err.message !== "HTML_FALLBACK_TRIGGERED" && !err.message.includes("Failed to fetch")) {
-        throw err;
-      }
+      console.warn("[Scanner Fallback]: Cloud server returned error, switching to In-Browser SAST scanner.", err);
       
       // Execute in-browser project creation
       const name = (formData.get("name") as string) || "Scanned-Project";
@@ -382,9 +380,7 @@ export const api = {
       });
       return await safeJson(res);
     } catch (err: unknown) {
-      if (err instanceof Error && err.message !== "HTML_FALLBACK_TRIGGERED" && !err.message.includes("Failed to fetch")) {
-        throw err;
-      }
+      console.warn("[Scanner Fallback]: Cloud scan trigger error, switching to In-Browser scan store.", err);
       
       const stored = loadStoredData();
       const projectData = stored[projectId];

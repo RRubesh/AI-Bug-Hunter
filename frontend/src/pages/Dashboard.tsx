@@ -750,19 +750,23 @@ export const Dashboard: React.FC<DashboardProps> = ({
               <Button variant="ghost" onClick={() => setSelectedProjectPreview(null)}>
                 Close
               </Button>
-              {selectedProjectPreview.latest_scan?.id && (
-                <Button
-                  variant="primary"
-                  icon={ArrowUpRight}
-                  onClick={() => {
-                    const scanId = selectedProjectPreview.latest_scan!.id;
-                    setSelectedProjectPreview(null);
-                    onNavigateToScanResults(scanId);
-                  }}
-                >
-                  Full Scan Report
-                </Button>
-              )}
+              {(() => {
+                const previewScan = selectedProjectPreview.latest_scan || (selectedProjectPreview.scans && selectedProjectPreview.scans.length > 0 ? selectedProjectPreview.scans[0] : null);
+                if (!previewScan?.id) return null;
+                return (
+                  <Button
+                    variant="primary"
+                    icon={ArrowUpRight}
+                    onClick={() => {
+                      const scanId = previewScan.id;
+                      setSelectedProjectPreview(null);
+                      onNavigateToScanResults(scanId);
+                    }}
+                  >
+                    Full Scan Report
+                  </Button>
+                );
+              })()}
             </div>
           </div>
         </Modal>

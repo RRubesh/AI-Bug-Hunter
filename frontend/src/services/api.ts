@@ -316,10 +316,20 @@ export const api = {
     const stored = loadStoredData();
     const localProjects = Object.values(stored).map((item) => item.project);
     
-    // De-duplicate by ID
+    // De-duplicate by ID and ensure latest_scan is populated
     const projectMap = new Map<number, Project>();
-    for (const p of backendProjects) projectMap.set(p.id, p);
-    for (const p of localProjects) projectMap.set(p.id, p);
+    for (const p of backendProjects) {
+      if (!p.latest_scan && p.scans && p.scans.length > 0) {
+        p.latest_scan = p.scans[0];
+      }
+      projectMap.set(p.id, p);
+    }
+    for (const p of localProjects) {
+      if (!p.latest_scan && p.scans && p.scans.length > 0) {
+        p.latest_scan = p.scans[0];
+      }
+      projectMap.set(p.id, p);
+    }
 
     return Array.from(projectMap.values()).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   },

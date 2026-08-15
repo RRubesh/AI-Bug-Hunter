@@ -37,6 +37,12 @@ class Project(Base):
     def owner_username(self):
         return self.owner.username if self.owner else None
 
+    @property
+    def latest_scan(self):
+        if not self.scans:
+            return None
+        return sorted(self.scans, key=lambda s: s.id, reverse=True)[0]
+
 class Scan(Base):
     __tablename__ = "scans"
 

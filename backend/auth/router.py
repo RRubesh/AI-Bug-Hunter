@@ -217,13 +217,3 @@ def forgot_password(reset_in: PasswordReset, request: Request, db: Session = Dep
 
     return {"message": "Password reset successfully. You can now login."}
 
-    mongo_manager.log_security_event(
-        event_type="password_reset",
-        description=f"Password reset completed for: {user.username}",
-        user_id=user.id,
-        ip_address=request.client.host if request.client else None,
-        user_agent=request.headers.get("user-agent")
-    )
-
-    return {"message": "Password reset successful"}
-

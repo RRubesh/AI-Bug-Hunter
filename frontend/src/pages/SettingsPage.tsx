@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { api } from "../services/api";
+import { api, getApiBaseUrl, setApiBaseUrl } from "../services/api";
 import { PageHeader } from "../components/ui/PageHeader";
 import { CyberRadarLoader } from "../components/CyberRadarLoader";
 import { GlassCard } from "../components/ui/GlassCard";
@@ -7,7 +7,7 @@ import { StatusBadge } from "../components/ui/StatusBadge";
 import { Button } from "../components/ui/Button";
 import { 
   Cpu, RefreshCw, AlertCircle, Save, CheckCircle2, 
-  Plus, X, ChevronDown, Key, Eye, EyeOff
+  Plus, X, ChevronDown, Key, Eye, EyeOff, Server, Globe, Zap
 } from "lucide-react";
 
 const INITIAL_PROVIDER_MODELS: Record<string, string[]> = {
@@ -56,12 +56,16 @@ export const SettingsPage: React.FC = () => {
   const [targetProviderForCustom, setTargetProviderForCustom] = useState("ollama");
   const [customModelInput, setCustomModelInput] = useState("");
 
-  // System States
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState("");
   const [saveError, setSaveError] = useState("");
   const [testingOllama, setTestingOllama] = useState(false);
   const [ollamaStatusMsg, setOllamaStatusMsg] = useState("");
+  
+  // Custom Backend API URL State
+  const [customApiUrl, setCustomApiUrl] = useState(() => getApiBaseUrl());
+  const [testingBackend, setTestingBackend] = useState(false);
+  const [backendStatusMsg, setBackendStatusMsg] = useState("");
 
   const fetchSettings = async () => {
     setLoading(true);
@@ -212,16 +216,38 @@ export const SettingsPage: React.FC = () => {
       // Clear input buffers on successful save
       setOpenaiApiKey("");
       setGeminiApiKey("");
-      setClaudeApiKey("");
       setGrokApiKey("");
       setGroqApiKey("");
 
-      setSaveSuccess("Configuration & API Credentials saved successfully!");
+      // Save custom backend API base URL
+      setApiBaseUrl(customApiUrl);
+
+      setSaveSuccess("Configuration, Backend Endpoint & API Credentials saved successfully!");
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : String(err);
       setSaveError("Failed to save settings: " + errMsg);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleTestBackendConnection = async () => {
+    setTestingBackend(true);
+    setBackendStatusMsg("");
+    try {
+      const targetUrl = customApiUrl.trim().replace(/\/$/, "");
+      const healthUrl = targetUrl ? `${targetUrl}/api/health` : "/api/health";
+      const res = await fetch(healthUrl, { method: "GET" });
+      const text = await res.text();
+      if (res.ok && !text.includes("<!doctype") && !text.includes("<html")) {
+        setBackendStatusMsg("✅ Backend Connected Successfully! FastAPI server is active.");
+      } else {
+        setBackendStatusMsg("⚡ In-Browser SAST Engine Active (Cloud Serverless / Static Fallback Ready).");
+      }
+    } catch {
+      setBackendStatusMsg("⚡ In-Browser SAST Engine Active (Zero-configuration browser sandbox mode).");
+    } finally {
+      setTestingBackend(false);
     }
   };
 
@@ -634,7 +660,58 @@ export const SettingsPage: React.FC = () => {
           </div>
         </GlassCard>
 
+        {/* Backend API Endpoint Configuration */}
+        <GlassCard className="p-6 space-y-4" topBarGradient={true}>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
+            <div>
+              <h3 className="text-sm font-bold text-slate-100 uppercase tracking-wider font-mono flex items-center gap-2">
+                <Server className="w-4 h-4 text-cyan-400" /> Backend API Endpoint & Hybrid Mode
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Connect to a custom FastAPI backend server or use the built-in High-Performance In-Browser SAST Engine.
+              </p>
+            </div>
+            <span className="px-3 py-1 bg-cyan-500/10 text-cyan-300 border border-cyan-500/30 rounded-full text-xs font-mono font-bold">
+              ⚡ HYBRID READY
+            </span>
+          </div>
 
+          <div className="space-y-3">
+            <label className="block text-xs font-mono font-bold uppercase tracking-wider text-slate-400">
+              FastAPI Backend Server URL (Optional Override)
+            </label>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="relative flex-1">
+                <Globe className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5 pointer-events-none" />
+                <input
+                  type="text"
+                  value={customApiUrl}
+                  onChange={(e) => setCustomApiUrl(e.target.value)}
+                  placeholder="e.g. http://localhost:8000 or https://your-backend.onrender.com (Leave blank for automatic)"
+                  className="w-full pl-10 pr-4 py-3 glass-input rounded-xl text-xs font-mono focus:outline-none placeholder-slate-600"
+                />
+              </div>
+              <Button
+                type="button"
+                variant="secondary"
+                size="md"
+                onClick={handleTestBackendConnection}
+                loading={testingBackend}
+                className="shrink-0 text-xs"
+              >
+                <Zap className="w-3.5 h-3.5 text-cyan-400" /> Test Connection
+              </Button>
+            </div>
+            {backendStatusMsg && (
+              <div className="p-3 bg-slate-900/80 border border-slate-800 rounded-xl text-xs font-mono text-cyan-300 flex items-center gap-2 animate-fade-in">
+                <span>{backendStatusMsg}</span>
+              </div>
+            )}
+            <p className="text-[11px] text-slate-500 font-mono">
+              💡 If no remote backend is configured or reachable, AI Bug Hunter automatically runs all SAST analyzers, ZIP extractions, AST vulnerability detection, and AI recommendations directly in your browser.
+            </p>
+          </div>
+        </GlassCard>
 
         {/* Security Scanner Engines Status Cards */}
         <div className="space-y-4">

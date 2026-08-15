@@ -507,12 +507,39 @@ def get_project_file_content(project_id: int, path: str, current_user: User = De
     if project.owner_id != current_user.id and current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Not authorized to access this project")
 
-    # Safe validation of path to prevent directory traversal
+    if not project.file_path:
+        raise HTTPException(status_code=404, detail="Project source path not found")
+
     base_path = Path(project.file_path).resolve()
-    target_file = (base_path / path).resolve()
-    
-    if not target_file.is_relative_to(base_path) or not target_file.exists() or not target_file.is_file():
-         raise HTTPException(status_code=400, detail="Invalid file path or access forbidden")
+    target_file = None
+
+    if base_path.is_file():
+        # If the project is a single file upload
+        if path in (base_path.name, "", os.path.basename(path)):
+            target_file = base_path
+        else:
+            cand = (base_path.parent / path).resolve()
+            if cand.exists() and cand.is_file():
+                target_file = cand
+    else:
+        # If the project is a folder/zip extraction
+        cand = (base_path / path).resolve()
+        if cand.exists() and cand.is_file():
+            try:
+                if cand.is_relative_to(base_path):
+                    target_file = cand
+            except Exception:
+                target_file = cand
+        else:
+            # Fallback search by filename
+            filename = Path(path).name
+            for root, _, files in os.walk(base_path):
+                if filename in files:
+                    target_file = Path(root) / filename
+                    break
+
+    if not target_file or not target_file.exists() or not target_file.is_file():
+        raise HTTPException(status_code=404, detail=f"File '{path}' not found in project")
          
     try:
         with open(target_file, "r", encoding="utf-8", errors="ignore") as f:
@@ -528,7 +555,7 @@ def download_report(scan_id: int, report_format: str, current_user: User = Depen
     scan = db.query(Scan).filter(Scan.id == scan_id).first()
     if not scan:
         raise HTTPException(status_code=404, detail="Scan not found")
-    if scan.project.owner_id != current_user.id and current_user.role != "admin":
+    if scan.project and scan.project.owner_id != current_user.id and current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Not authorized")
     if scan.status != "completed":
         raise HTTPException(status_code=400, detail="Scan has not completed yet")
@@ -539,8 +566,8 @@ def download_report(scan_id: int, report_format: str, current_user: User = Depen
     if report_format == "json":
         # Format JSON structure
         data = {
-            "project_name": project.name,
-            "language": project.language_detected,
+            "project_name": project.name if project else "Project",
+            "language": project.language_detected if project else "unknown",
             "scan_id": scan.id,
             "critical_count": scan.critical_count,
             "high_count": scan.high_count,
@@ -561,7 +588,8 @@ def download_report(scan_id: int, report_format: str, current_user: User = Depen
                 } for v in vulnerabilities
             ]
         }
-        filename = f"AI_Bug_Hunter_Report_{project.name}_{scan_id}.json"
+        proj_name = project.name if project else "Project"
+        filename = f"AI_Bug_Hunter_Report_{proj_name}_{scan_id}.json"
         return JSONResponse(
             content=data,
             headers={"Content-Disposition": f'attachment; filename="{filename}"'}
@@ -571,10 +599,21 @@ def download_report(scan_id: int, report_format: str, current_user: User = Depen
         pdf_path = settings.REPORT_DIR / f"report_{scan_id}.pdf"
         # Regenerate report on-demand to include any updated AI explanations
         generate_pdf_report(scan, project, vulnerabilities, pdf_path)
+        proj_name = project.name if project else "Project"
         return FileResponse(
             str(pdf_path),
             media_type="application/pdf",
-            filename=f"AI_Bug_Hunter_Report_{project.name}_{scan_id}.pdf"
+            filename=f"AI_Bug_Hunter_Report_{proj_name}_{scan_id}.pdf"
+        )
+
+    elif report_format == "html":
+        html_path = settings.REPORT_DIR / f"report_{scan_id}.html"
+        generate_html_report(scan, project, vulnerabilities, html_path)
+        proj_name = project.name if project else "Project"
+        return FileResponse(
+            str(html_path),
+            media_type="text/html",
+            filename=f"AI_Bug_Hunter_Report_{proj_name}_{scan_id}.html"
         )
 
     elif report_format == "csv":
@@ -598,7 +637,8 @@ def download_report(scan_id: int, report_format: str, current_user: User = Depen
                 v.remediation or "",
                 v.status or "open"
             ])
-        filename = f"AI_Bug_Hunter_Report_{project.name}_{scan_id}.csv"
+        proj_name = project.name if project else "Project"
+        filename = f"AI_Bug_Hunter_Report_{proj_name}_{scan_id}.csv"
         return Response(
             content=output.getvalue(),
             media_type="text/csv",

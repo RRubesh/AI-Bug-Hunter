@@ -45,6 +45,7 @@ class ProjectResponse(ProjectBase):
     owner_username: Optional[str] = None
     created_at: datetime
     updated_at: datetime
+    latest_scan: Optional["ScanResponse"] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -66,6 +67,8 @@ class ScanResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+ProjectResponse.model_rebuild()
+
 # --- Vulnerability Schemas ---
 class VulnerabilityResponse(BaseModel):
     id: int
@@ -78,16 +81,15 @@ class VulnerabilityResponse(BaseModel):
     message: str = ""
     tool_name: str = "Scanner Engine"
     status: str = "open"
+    remediation: Optional[str] = None
+    ai_explanation: Optional[str] = None
+    ai_fix: Optional[str] = None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
 
 class VulnerabilityDetail(VulnerabilityResponse):
-    remediation: Optional[str] = None
-    ai_explanation: Optional[str] = None
-    ai_fix: Optional[str] = None
-
-    model_config = ConfigDict(from_attributes=True)
+    pass
 
 
 class VulnerabilityUpdate(BaseModel):

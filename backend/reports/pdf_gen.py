@@ -194,17 +194,21 @@ def generate_pdf_report(scan: Scan, project: Project, vulnerabilities: list, out
     story.append(Paragraph("ENTERPRISE STATIC APPLICATION SECURITY TESTING (SAST) AUDIT", subtitle_style))
     
     # Metadata & Status Table
+    proj_name = project.name if project else "Target Project"
+    proj_type = (project.upload_type or "file").upper() if project else "SOURCE CODE"
+    proj_lang = (project.language_detected or "Python") if project else "Multi-Language"
+
     meta_table_data = [
         [
-            Paragraph("<b>Target Project:</b>", body_style), Paragraph(safe_escape(project.name), body_style),
+            Paragraph("<b>Target Project:</b>", body_style), Paragraph(safe_escape(proj_name), body_style),
             Paragraph("<b>Report ID:</b>", body_style), Paragraph(f"REP-{scan.id:05d}", body_style)
         ],
         [
-            Paragraph("<b>Source / Upload Type:</b>", body_style), Paragraph(safe_escape((project.upload_type or "file").upper()), body_style),
+            Paragraph("<b>Source / Upload Type:</b>", body_style), Paragraph(safe_escape(proj_type), body_style),
             Paragraph("<b>Report Version:</b>", body_style), Paragraph("v2.4.0 (Enterprise)", body_style)
         ],
         [
-            Paragraph("<b>Primary Language:</b>", body_style), Paragraph(safe_escape(project.language_detected or "Python"), body_style),
+            Paragraph("<b>Primary Language:</b>", body_style), Paragraph(safe_escape(proj_lang), body_style),
             Paragraph("<b>Scan Timestamp:</b>", body_style), Paragraph(safe_escape(scan.created_at.strftime('%Y-%m-%d %H:%M:%S UTC') if scan.created_at else "N/A"), body_style)
         ],
         [

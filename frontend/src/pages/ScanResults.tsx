@@ -356,42 +356,45 @@ export const ScanResults: React.FC<ScanResultsProps> = ({ scanId, onNavigateToDa
       </GlassCard>
 
       {/* 2. EXECUTIVE SUMMARY CARDS GRID */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-9 gap-3">
-        <div className="p-4 glass-panel rounded-2xl border border-slate-800 text-center">
-          <span className="text-[10px] font-mono font-bold text-slate-400 uppercase block">Total Issues</span>
-          <span className="text-2xl font-black font-mono text-slate-100 block mt-1">{totalIssues}</span>
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 xl:grid-cols-9 gap-2.5 sm:gap-3">
+        <div className="p-3 sm:p-3.5 glass-panel rounded-2xl border border-slate-800 text-center flex flex-col justify-between items-center min-w-0 overflow-hidden">
+          <span className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider block truncate w-full">Total Issues</span>
+          <span className="text-xl sm:text-2xl font-black font-mono text-slate-100 block mt-1">{totalIssues}</span>
         </div>
-        <div className="p-4 glass-panel rounded-2xl border border-rose-500/30 bg-rose-500/5 text-center">
-          <span className="text-[10px] font-mono font-bold text-rose-400 uppercase block">Critical</span>
-          <span className="text-2xl font-black font-mono text-rose-400 block mt-1">{criticalCount}</span>
+        <div className="p-3 sm:p-3.5 glass-panel rounded-2xl border border-rose-500/30 bg-rose-500/5 text-center flex flex-col justify-between items-center min-w-0 overflow-hidden">
+          <span className="text-[10px] font-mono font-bold text-rose-400 uppercase tracking-wider block truncate w-full">Critical</span>
+          <span className="text-xl sm:text-2xl font-black font-mono text-rose-400 block mt-1">{criticalCount}</span>
         </div>
-        <div className="p-4 glass-panel rounded-2xl border border-amber-500/30 bg-amber-500/5 text-center">
-          <span className="text-[10px] font-mono font-bold text-amber-400 uppercase block">High</span>
-          <span className="text-2xl font-black font-mono text-amber-400 block mt-1">{highCount}</span>
+        <div className="p-3 sm:p-3.5 glass-panel rounded-2xl border border-amber-500/30 bg-amber-500/5 text-center flex flex-col justify-between items-center min-w-0 overflow-hidden">
+          <span className="text-[10px] font-mono font-bold text-amber-400 uppercase tracking-wider block truncate w-full">High</span>
+          <span className="text-xl sm:text-2xl font-black font-mono text-amber-400 block mt-1">{highCount}</span>
         </div>
-        <div className="p-4 glass-panel rounded-2xl border border-yellow-500/30 bg-yellow-500/5 text-center">
-          <span className="text-[10px] font-mono font-bold text-yellow-400 uppercase block">Medium</span>
-          <span className="text-2xl font-black font-mono text-yellow-400 block mt-1">{mediumCount}</span>
+        <div className="p-3 sm:p-3.5 glass-panel rounded-2xl border border-yellow-500/30 bg-yellow-500/5 text-center flex flex-col justify-between items-center min-w-0 overflow-hidden">
+          <span className="text-[10px] font-mono font-bold text-yellow-400 uppercase tracking-wider block truncate w-full">Medium</span>
+          <span className="text-xl sm:text-2xl font-black font-mono text-yellow-400 block mt-1">{mediumCount}</span>
         </div>
-        <div className="p-4 glass-panel rounded-2xl border border-blue-500/30 bg-blue-500/5 text-center">
-          <span className="text-[10px] font-mono font-bold text-blue-400 uppercase block">Low</span>
-          <span className="text-2xl font-black font-mono text-blue-400 block mt-1">{lowCount}</span>
+        <div className="p-3 sm:p-3.5 glass-panel rounded-2xl border border-blue-500/30 bg-blue-500/5 text-center flex flex-col justify-between items-center min-w-0 overflow-hidden">
+          <span className="text-[10px] font-mono font-bold text-blue-400 uppercase tracking-wider block truncate w-full">Low</span>
+          <span className="text-xl sm:text-2xl font-black font-mono text-blue-400 block mt-1">{lowCount}</span>
         </div>
-        <div className="p-4 glass-panel rounded-2xl border border-cyan-500/30 bg-cyan-500/5 text-center">
-          <span className="text-[10px] font-mono font-bold text-cyan-400 uppercase block">Secrets</span>
-          <span className="text-2xl font-black font-mono text-cyan-400 block mt-1">{secretsList.length}</span>
+        <div className="p-3 sm:p-3.5 glass-panel rounded-2xl border border-cyan-500/30 bg-cyan-500/5 text-center flex flex-col justify-between items-center min-w-0 overflow-hidden">
+          <span className="text-[10px] font-mono font-bold text-cyan-400 uppercase tracking-wider block truncate w-full">Secrets</span>
+          <span className="text-xl sm:text-2xl font-black font-mono text-cyan-400 block mt-1">{secretsList.length}</span>
         </div>
-        <div className="p-4 glass-panel rounded-2xl border border-violet-500/30 bg-violet-500/5 text-center">
-          <span className="text-[10px] font-mono font-bold text-violet-400 uppercase block">Deps Issues</span>
-          <span className="text-2xl font-black font-mono text-violet-400 block mt-1">{depsList.length}</span>
+        <div className="p-3 sm:p-3.5 glass-panel rounded-2xl border border-violet-500/30 bg-violet-500/5 text-center flex flex-col justify-between items-center min-w-0 overflow-hidden">
+          <span className="text-[10px] font-mono font-bold text-violet-400 uppercase tracking-wider block truncate w-full">Deps Issues</span>
+          <span className="text-xl sm:text-2xl font-black font-mono text-violet-400 block mt-1">{depsList.length}</span>
         </div>
-        <div className="p-4 glass-panel rounded-2xl border border-emerald-500/30 bg-emerald-500/5 text-center">
-          <span className="text-[10px] font-mono font-bold text-emerald-400 uppercase block">Fixed</span>
-          <span className="text-2xl font-black font-mono text-emerald-400 block mt-1">{fixedCount}</span>
+        <div className="p-3 sm:p-3.5 glass-panel rounded-2xl border border-emerald-500/30 bg-emerald-500/5 text-center flex flex-col justify-between items-center min-w-0 overflow-hidden">
+          <span className="text-[10px] font-mono font-bold text-emerald-400 uppercase tracking-wider block truncate w-full">Fixed</span>
+          <span className="text-xl sm:text-2xl font-black font-mono text-emerald-400 block mt-1">{fixedCount}</span>
         </div>
-        <div className="p-4 glass-panel rounded-2xl border border-slate-800 text-center">
-          <span className="text-[10px] font-mono font-bold text-slate-400 uppercase block">Security Score</span>
-          <span className="text-2xl font-black font-mono text-cyan-400 block mt-1">{score}/100</span>
+        <div className="p-3 sm:p-3.5 glass-panel rounded-2xl border border-cyan-500/30 bg-cyan-500/5 text-center flex flex-col justify-between items-center min-w-0 overflow-hidden">
+          <span className="text-[10px] font-mono font-bold text-cyan-400 uppercase tracking-wider block truncate w-full">Security Score</span>
+          <div className="flex items-baseline justify-center gap-0.5 mt-1 overflow-hidden">
+            <span className="text-xl sm:text-2xl font-black font-mono text-cyan-400 leading-none">{score}</span>
+            <span className="text-[11px] font-mono text-slate-400 font-bold">/100</span>
+          </div>
         </div>
       </div>
 

@@ -659,68 +659,124 @@ export const api = {
       document.body.removeChild(a);
       window.URL.revokeObjectURL(blobUrl);
     } else if (format === "html" || format === "pdf") {
-      // Interactive HTML Report
+      // Interactive Executive Security Assessment Report
       const htmlContent = `<!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AI Bug Hunter Security Report #${scanId}</title>
   <style>
-    body { font-family: system-ui, -apple-system, sans-serif; background: #030712; color: #f1f5f9; padding: 32px; max-width: 900px; margin: auto; }
-    h1 { color: #38bdf8; font-size: 24px; }
-    .card { background: #0f172a; border: 1px solid #1e293b; border-radius: 12px; padding: 20px; margin-bottom: 16px; }
-    .badge { padding: 4px 10px; border-radius: 6px; font-weight: bold; font-size: 11px; text-transform: uppercase; }
-    .CRITICAL { background: #e11d48; color: white; }
-    .HIGH { background: #f97316; color: white; }
-    .MEDIUM { background: #eab308; color: black; }
-    .LOW { background: #3b82f6; color: white; }
-    code { background: #1e293b; color: #38bdf8; padding: 2px 6px; border-radius: 4px; font-family: monospace; }
-    pre { background: #020617; border: 1px solid #1e293b; padding: 12px; border-radius: 8px; overflow-x: auto; color: #e2e8f0; font-family: monospace; font-size: 12px; }
+    @media print {
+      body { background: #ffffff !important; color: #0f172a !important; padding: 0 !important; }
+      .card { background: #f8fafc !important; border: 1px solid #cbd5e1 !important; color: #0f172a !important; break-inside: avoid; }
+      .no-print { display: none !important; }
+      pre { background: #f1f5f9 !important; border: 1px solid #cbd5e1 !important; color: #0f172a !important; }
+      code { color: #0369a1 !important; }
+      h1, h2, h3 { color: #0f172a !important; }
+    }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #030712; color: #f1f5f9; padding: 32px; max-width: 960px; margin: auto; line-height: 1.5; }
+    h1 { color: #38bdf8; font-size: 24px; margin-bottom: 4px; }
+    .header-box { background: #0f172a; border: 1px solid #1e293b; border-radius: 16px; padding: 24px; margin-bottom: 24px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; margin-top: 16px; }
+    .stat-card { background: #020617; border: 1px solid #1e293b; border-radius: 12px; padding: 12px; text-align: center; }
+    .stat-val { font-size: 20px; font-weight: 800; font-family: monospace; }
+    .card { background: #0f172a; border: 1px solid #1e293b; border-radius: 14px; padding: 20px; margin-bottom: 16px; page-break-inside: avoid; }
+    .badge { padding: 4px 10px; border-radius: 6px; font-weight: 800; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .CRITICAL { background: #e11d48; color: #ffffff; }
+    .HIGH { background: #f97316; color: #ffffff; }
+    .MEDIUM { background: #eab308; color: #000000; }
+    .LOW { background: #3b82f6; color: #ffffff; }
+    .INFO { background: #64748b; color: #ffffff; }
+    code { background: #1e293b; color: #38bdf8; padding: 2px 6px; border-radius: 4px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 12px; }
+    pre { background: #020617; border: 1px solid #1e293b; padding: 14px; border-radius: 8px; overflow-x: auto; color: #e2e8f0; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 12px; }
+    .print-btn { background: #0284c7; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; margin-bottom: 20px; }
   </style>
 </head>
 <body>
-  <h1>🛡️ AI Bug Hunter - Executive Security Audit Report</h1>
-  <div class="card">
-    <p><strong>Scan ID:</strong> #${scanId} | <strong>Project:</strong> ${scan.project?.name || "Codebase"}</p>
-    <p><strong>Total Vulnerabilities:</strong> ${vulns.length} (Critical: ${vulns.filter((v) => v.severity === "CRITICAL").length}, High: ${vulns.filter((v) => v.severity === "HIGH").length}, Medium: ${vulns.filter((v) => v.severity === "MEDIUM").length}, Low: ${vulns.filter((v) => v.severity === "LOW").length})</p>
-    <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
+  <div class="no-print" style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 16px;">
+    <button class="print-btn" onclick="window.print()">🖨️ Print / Save as PDF</button>
+    <span style="font-size:12px; color:#94a3b8;">AI Bug Hunter v2.4.0 Enterprise</span>
   </div>
-  <h2>Findings & Remediation Details</h2>
-  ${vulns.map((v) => `
+  <div class="header-box">
+    <h1>🛡️ AI Bug Hunter - Security Assessment Report</h1>
+    <p style="color:#94a3b8; font-size:13px; margin: 4px 0 16px 0;">Enterprise Static Application Security Testing (SAST) Audit</p>
+    <div style="font-size: 13px; color: #cbd5e1; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+      <div><strong>Target Project:</strong> ${scan.project?.name || "Target Codebase"}</div>
+      <div><strong>Report ID:</strong> REP-${scanId.toString().padStart(5, '0')}</div>
+      <div><strong>Scan Type:</strong> ${(scan.project?.upload_type || "Source Code").toUpperCase()}</div>
+      <div><strong>Generated:</strong> ${new Date().toLocaleString()}</div>
+    </div>
+    <div class="grid">
+      <div class="stat-card"><span style="font-size:10px; color:#94a3b8; font-weight:bold; display:block;">TOTAL FINDINGS</span><span class="stat-val" style="color:#f8fafc;">${vulns.length}</span></div>
+      <div class="stat-card"><span style="font-size:10px; color:#fb7185; font-weight:bold; display:block;">CRITICAL</span><span class="stat-val" style="color:#f43f5e;">${vulns.filter((v) => v.severity === "CRITICAL").length}</span></div>
+      <div class="stat-card"><span style="font-size:10px; color:#fb923c; font-weight:bold; display:block;">HIGH</span><span class="stat-val" style="color:#f97316;">${vulns.filter((v) => v.severity === "HIGH").length}</span></div>
+      <div class="stat-card"><span style="font-size:10px; color:#facc15; font-weight:bold; display:block;">MEDIUM</span><span class="stat-val" style="color:#eab308;">${vulns.filter((v) => v.severity === "MEDIUM").length}</span></div>
+      <div class="stat-card"><span style="font-size:10px; color:#38bdf8; font-weight:bold; display:block;">SECURITY SCORE</span><span class="stat-val" style="color:#38bdf8;">${scan.total_vulnerabilities === 0 ? 100 : Math.max(0, 100 - (vulns.filter(v => v.severity === 'CRITICAL').length * 15 + vulns.filter(v => v.severity === 'HIGH').length * 8))}/100</span></div>
+    </div>
+  </div>
+
+  <h2 style="font-size:18px; margin-top:24px; color:#f8fafc;">Security Findings & Remediation Details</h2>
+  ${vulns.length === 0 ? '<div class="card" style="text-align:center; color:#10b981; font-weight:bold;">✅ Zero security vulnerabilities detected. Codebase is clean!</div>' : ''}
+  ${vulns.map((v, i) => `
     <div class="card">
-      <div style="display:flex; justify-content:space-between; align-items:center;">
-        <h3>${v.message}</h3>
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap: 12px;">
+        <div>
+          <span style="font-size:11px; font-weight:bold; color:#94a3b8; font-family:monospace;">#${i + 1} • ${v.category}</span>
+          <h3 style="margin: 4px 0; font-size:15px; color:#f1f5f9;">${v.message}</h3>
+        </div>
         <span class="badge ${v.severity}">${v.severity}</span>
       </div>
-      <p><strong>File:</strong> <code>${v.file_path}${v.line_number ? `:${v.line_number}` : ""}</code> | <strong>Scanner:</strong> ${v.tool_name}</p>
+      <p style="font-size:12px; margin: 8px 0; color:#cbd5e1;"><strong>File:</strong> <code>${v.file_path}${v.line_number ? `:${v.line_number}` : ""}</code> | <strong>Scanner Engine:</strong> ${v.tool_name}</p>
       ${v.code_snippet ? `<pre><code>${v.code_snippet}</code></pre>` : ""}
-      <p><strong>Remediation:</strong> ${v.remediation || "Review input validation."}</p>
-      ${v.ai_fix ? `<div style="margin-top:8px;"><strong>Suggested Secure Code:</strong><pre><code>${v.ai_fix}</code></pre></div>` : ""}
+      <div style="background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.25); border-radius:8px; padding:12px; margin-top:10px; font-size:12px; color:#d1fae5;">
+        <strong style="color:#34d399; display:block; margin-bottom:4px;">🛡️ Recommended Remediation:</strong>
+        ${v.remediation || "Review input parameters and apply strict validation."}
+      </div>
+      ${v.ai_fix ? `
+        <div style="background:rgba(139,92,246,0.08); border:1px solid rgba(139,92,246,0.25); border-radius:8px; padding:12px; margin-top:10px; font-size:12px; color:#e0e7ff;">
+          <strong style="color:#a78bfa; display:block; margin-bottom:4px;">✨ AI Defensive Implementation:</strong>
+          <pre style="margin-top:6px;"><code>${v.ai_fix}</code></pre>
+        </div>
+      ` : ""}
     </div>
   `).join("")}
 </body>
 </html>`;
 
-      if (format === "html") {
-        const blob = new Blob([htmlContent], { type: "text/html" });
-        const blobUrl = window.URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = blobUrl;
-        a.download = `AI_Bug_Hunter_Report_${scanId}.html`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(blobUrl);
-      } else {
-        // PDF format print trigger
-        const printWindow = window.open("", "_blank");
-        if (printWindow) {
-          printWindow.document.write(htmlContent);
-          printWindow.document.close();
-          printWindow.focus();
+      // 1. Trigger automatic file download of the standalone report document
+      const blob = new Blob([htmlContent], { type: "text/html" });
+      const blobUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = `AI_Bug_Hunter_Report_${scanId}.${format === "pdf" ? "html" : format}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(blobUrl);
+
+      // 2. If PDF requested, also trigger print via invisible iframe (never blocked by popup blockers)
+      if (format === "pdf") {
+        const iframe = document.createElement("iframe");
+        iframe.style.position = "fixed";
+        iframe.style.right = "0";
+        iframe.style.bottom = "0";
+        iframe.style.width = "0";
+        iframe.style.height = "0";
+        iframe.style.border = "0";
+        document.body.appendChild(iframe);
+        const doc = iframe.contentWindow?.document;
+        if (doc) {
+          doc.open();
+          doc.write(htmlContent);
+          doc.close();
           setTimeout(() => {
-            printWindow.print();
-          }, 500);
+            iframe.contentWindow?.focus();
+            iframe.contentWindow?.print();
+            setTimeout(() => {
+              try { document.body.removeChild(iframe); } catch {}
+            }, 2000);
+          }, 400);
         }
       }
     }

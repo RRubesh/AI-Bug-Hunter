@@ -118,10 +118,10 @@ def generate_html_report(scan: Scan, project: Project, vulnerabilities: list, ou
     
     vuln_cards = "".join(build_vuln_card(idx, vuln) for idx, vuln in enumerate(sorted_vulns, 1))
 
-    escaped_project_name = safe_escape(project.name)
-    escaped_project_description = safe_escape(project.description or 'Static security scan and code analysis summary.')
-    escaped_project_language = safe_escape(project.language_detected or 'Unknown')
-    escaped_project_upload_type = safe_escape(project.upload_type.upper() if project.upload_type else 'FILE')
+    escaped_project_name = safe_escape(project.name if project else "Target Project")
+    escaped_project_description = safe_escape((project.description if project else None) or 'Static security scan and code analysis summary.')
+    escaped_project_language = safe_escape((project.language_detected if project else None) or 'Unknown')
+    escaped_project_upload_type = safe_escape((project.upload_type.upper() if project and project.upload_type else 'FILE'))
     escaped_scan_timestamp = safe_escape(scan.created_at.strftime('%Y-%m-%d %H:%M:%S') if scan.created_at else '')
 
     cards_section_html = vuln_cards if sorted_vulns else '<div class="p-8 text-center bg-slate-900/20 border border-slate-800 rounded-xl text-slate-500">No vulnerabilities detected in this codebase. Good job!</div>'

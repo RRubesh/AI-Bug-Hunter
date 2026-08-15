@@ -216,6 +216,7 @@ export const SettingsPage: React.FC = () => {
       // Clear input buffers on successful save
       setOpenaiApiKey("");
       setGeminiApiKey("");
+      setClaudeApiKey("");
       setGrokApiKey("");
       setGroqApiKey("");
 

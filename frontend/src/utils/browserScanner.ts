@@ -1,5 +1,5 @@
 import JSZip from "jszip";
-import type { Project, Scan, Vulnerability, ScanStats, DashboardSummary } from "../services/api";
+import type { Project, Scan, Vulnerability } from "../services/api";
 
 export interface StoredProjectData {
   project: Project;
@@ -319,9 +319,6 @@ export async function runInBrowserScan(options: InBrowserScanOptions): Promise<{
     const lines = content.split("\n");
 
     for (const rule of SAST_RULES) {
-      rule.pattern.lastIndex = 0;
-      let match: RegExpExecArray | null;
-
       // Check line by line to get exact line numbers
       lines.forEach((lineText, lineIdx) => {
         rule.pattern.lastIndex = 0;

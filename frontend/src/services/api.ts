@@ -3,9 +3,7 @@ import {
   runInBrowserScan, 
   loadStoredData, 
   saveStoredData, 
-  getSessionFile,
-  cacheSessionFile,
-  detectLanguageFromFilename 
+  getSessionFile 
 } from "../utils/browserScanner";
 
 export interface User {

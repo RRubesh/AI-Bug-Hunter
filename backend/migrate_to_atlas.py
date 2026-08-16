@@ -6,44 +6,69 @@ from pathlib import Path
 # Add project root to sys.path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from pymongo import MongoClient, ASCENDING, DESCENDING
+from pymongo import MongoClient
 from backend.config import settings
 from backend.database import SessionLocal
 from backend.models import User, Project, Scan, Vulnerability, ChatMessage
 
-def migrate_to_atlas(target_uri: str = None, target_db_name: str = "ai_bug_hunter"):
+def migrate_to_atlas(target_uri: str = None, target_db_name: str = "aibughunter"):
     """
-    Migrates all Users, Projects, Scans, Vulnerabilities, and Chat Messages
-    from local SQLite/MongoDB to MongoDB Atlas.
+    Transfers and syncs all collections directly from local MongoDB Compass (localhost:27017/aibughunter)
+    and SQLite into MongoDB Atlas.
     """
     if not target_uri:
         target_uri = settings.MONGODB_URL or os.getenv("MONGODB_URI", "")
 
-    print("=" * 65)
-    print("      Data Transfer & Migration Engine ➔ MongoDB Atlas")
-    print("=" * 65)
+    print("=" * 70)
+    print("      MongoDB Compass ➔ MongoDB Atlas Bridge & Sync Engine")
+    print("=" * 70)
 
-    if not target_uri or "XXXXX" in target_uri or "<username>" in target_uri:
-        print("\n[!] Error: Invalid MongoDB Atlas URI.")
-        print("Please provide a valid connection string:")
-        print("  python backend/migrate_to_atlas.py \"mongodb+srv://user:pass@cluster0.abcde.mongodb.net/?retryWrites=true&w=majority\"")
-        print("=" * 65)
+    if not target_uri or "XXXXX" in target_uri or "<username>" in target_uri or target_uri.startswith("mongodb://localhost"):
+        print("\n[!] Atlas Destination URI not provided in arguments.")
+        print("To sync to Atlas, provide your Atlas URI:")
+        print("  python backend/migrate_to_atlas.py \"mongodb+srv://rubeshr000_db_user:1KltGvo6Qa1O1kP9@YOUR_CLUSTER.mongodb.net/?retryWrites=true&w=majority\"")
+        print("=" * 70)
         return False
 
-    print(f"\n[*] Connecting to MongoDB Atlas ({target_db_name})...")
+    print(f"\n[*] Connecting to destination MongoDB Atlas ({target_db_name})...")
     try:
-        client = MongoClient(target_uri, serverSelectionTimeoutMS=8000)
-        client.admin.command('ping')
-        db = client[target_db_name]
-        print("[✓] Connected successfully to MongoDB Atlas!")
+        atlas_client = MongoClient(target_uri, serverSelectionTimeoutMS=8000)
+        atlas_client.admin.command('ping')
+        atlas_db = atlas_client[target_db_name]
+        print("[✓] Connected successfully to MongoDB Atlas Cloud!")
     except Exception as e:
         print(f"[!] Failed to connect to MongoDB Atlas: {str(e)}")
         return False
 
-    # Read from local SQLite database
+    # 1. Read from local MongoDB Compass (localhost:27017 / aibughunter)
+    local_mongo_uri = "mongodb://localhost:27017"
+    local_db_name = "aibughunter"
+    migrated_from_compass = False
+
+    try:
+        local_client = MongoClient(local_mongo_uri, serverSelectionTimeoutMS=3000)
+        local_client.admin.command('ping')
+        local_db = local_client[local_db_name]
+        collection_names = local_db.list_collection_names()
+        
+        if collection_names:
+            print(f"\n[*] Found {len(collection_names)} collections in local MongoDB Compass ({local_db_name}):")
+            for col_name in collection_names:
+                count = local_db[col_name].count_documents({})
+                print(f"    - {col_name}: {count} documents")
+                if count > 0:
+                    docs = list(local_db[col_name].find({}))
+                    for doc in docs:
+                        atlas_db[col_name].replace_one({"_id": doc["_id"]}, doc, upsert=True)
+                    print(f"      [✓] Synced {len(docs)} documents to Atlas collection '{col_name}'.")
+            migrated_from_compass = True
+    except Exception as e:
+        print(f"[*] Note: Local MongoDB Compass sync skipped ({str(e)}). Falling back to SQLite migration...")
+
+    # 2. Read from local SQLite database as fallback or additional sync
     sqlite_session = SessionLocal()
     try:
-        print("\n[*] Exporting local records from SQLite...")
+        print("\n[*] Synchronizing SQLite records...")
         users = sqlite_session.query(User).all()
         projects = sqlite_session.query(Project).all()
         scans = sqlite_session.query(Scan).all()
@@ -69,7 +94,7 @@ def migrate_to_atlas(target_uri: str = None, target_db_name: str = "ai_bug_hunte
                 "created_at": u.created_at or datetime.datetime.now()
             } for u in users]
             for doc in user_docs:
-                db.users.replace_one({"_id": doc["_id"]}, doc, upsert=True)
+                atlas_db.users.replace_one({"_id": doc["_id"]}, doc, upsert=True)
             print(f"[✓] Migrated {len(user_docs)} users to Atlas.")
 
         # 2. Projects
@@ -87,7 +112,7 @@ def migrate_to_atlas(target_uri: str = None, target_db_name: str = "ai_bug_hunte
                 "updated_at": p.updated_at or datetime.datetime.now()
             } for p in projects]
             for doc in proj_docs:
-                db.projects.replace_one({"_id": doc["_id"]}, doc, upsert=True)
+                atlas_db.projects.replace_one({"_id": doc["_id"]}, doc, upsert=True)
             print(f"[✓] Migrated {len(proj_docs)} projects to Atlas.")
 
         # 3. Scans
@@ -108,7 +133,7 @@ def migrate_to_atlas(target_uri: str = None, target_db_name: str = "ai_bug_hunte
                 "finished_at": s.finished_at
             } for s in scans]
             for doc in scan_docs:
-                db.scans.replace_one({"_id": doc["_id"]}, doc, upsert=True)
+                atlas_db.scans.replace_one({"_id": doc["_id"]}, doc, upsert=True)
             print(f"[✓] Migrated {len(scan_docs)} scans to Atlas.")
 
         # 4. Vulnerabilities
@@ -129,9 +154,9 @@ def migrate_to_atlas(target_uri: str = None, target_db_name: str = "ai_bug_hunte
                 "ai_fix": v.ai_fix,
                 "status": v.status or "open",
                 "created_at": v.created_at or datetime.datetime.now()
-            } for v in vulns]
+            } for v in vuln_docs]
             for doc in vuln_docs:
-                db.vulnerabilities.replace_one({"_id": doc["_id"]}, doc, upsert=True)
+                atlas_db.vulnerabilities.replace_one({"_id": doc["_id"]}, doc, upsert=True)
             print(f"[✓] Migrated {len(vuln_docs)} vulnerabilities to Atlas.")
 
         # 5. Chat Messages
@@ -146,12 +171,12 @@ def migrate_to_atlas(target_uri: str = None, target_db_name: str = "ai_bug_hunte
                 "created_at": m.created_at or datetime.datetime.now()
             } for m in chat_msgs]
             for doc in msg_docs:
-                db.chat_messages.replace_one({"_id": doc["_id"]}, doc, upsert=True)
+                atlas_db.chat_messages.replace_one({"_id": doc["_id"]}, doc, upsert=True)
             print(f"[✓] Migrated {len(msg_docs)} chat messages to Atlas.")
 
-        print("\n" + "=" * 65)
-        print(" [SUCCESS] All application data successfully transferred to MongoDB Atlas!")
-        print("=" * 65)
+        print("\n" + "=" * 70)
+        print(" [SUCCESS] All MongoDB Compass & Local collections synced to MongoDB Atlas!")
+        print("=" * 70)
         return True
     finally:
         sqlite_session.close()

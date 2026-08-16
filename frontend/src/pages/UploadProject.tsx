@@ -102,8 +102,36 @@ export const UploadProject: React.FC<UploadProjectProps> = ({ onUploadSuccess, o
     dependency: true,
   });
 
-  // AI Model Selection
+  // AI Provider & Model Selection (All 5 Providers Supported)
+  const [selectedProvider, setSelectedProvider] = useState("openrouter");
   const [aiModel, setAiModel] = useState("deepseek/deepseek-chat");
+
+  const detectProviderFromModel = (modelName: string): string => {
+    if (modelName.startsWith("gpt-") || modelName.startsWith("o1") || modelName.startsWith("o3")) return "openai";
+    if (modelName.startsWith("gemini-")) return "gemini";
+    if (modelName.startsWith("claude-")) return "claude";
+    if (modelName.startsWith("grok-")) return "grok";
+    return "openrouter";
+  };
+
+  // Load user's saved active provider & model from Settings
+  React.useEffect(() => {
+    let active = true;
+    api.getSettings()
+      .then((settings) => {
+        if (!active || !settings) return;
+        if (settings.ai_provider) setSelectedProvider(settings.ai_provider);
+        if (settings.default_model) setAiModel(settings.default_model);
+      })
+      .catch(() => {});
+    return () => { active = false; };
+  }, []);
+
+  const handleModelChange = (newModel: string) => {
+    setAiModel(newModel);
+    const prov = detectProviderFromModel(newModel);
+    setSelectedProvider(prov);
+  };
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -219,13 +247,23 @@ export const UploadProject: React.FC<UploadProjectProps> = ({ onUploadSuccess, o
         formData.append("pasted_code", pastedCode.trim());
       }
 
-      // 1. Create project record
+      // 1. Persist active AI model & provider configuration
+      try {
+        await api.updateSettings({
+          ai_provider: selectedProvider,
+          default_model: aiModel,
+        });
+      } catch (e) {
+        console.warn("Settings sync notice:", e);
+      }
+
+      // 2. Create project record
       const proj = await api.createProject(formData);
       
-      // 2. Trigger asynchronous multi-engine SAST scan
+      // 3. Trigger asynchronous multi-engine SAST scan
       const scan = await api.triggerScan(proj.id);
       
-      // 3. Forward to real-time progress monitor
+      // 4. Forward to real-time progress monitor
       onUploadSuccess(scan.id);
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : "Failed to upload project. Check input parameters.";
@@ -603,38 +641,93 @@ export const UploadProject: React.FC<UploadProjectProps> = ({ onUploadSuccess, o
               </div>
             </div>
 
-            {/* AI Model Selection */}
+            {/* AI Security Model Selection (Supports 5 AI Providers) */}
             <div className="space-y-3">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-400 font-mono block">
-                AI Security Model (OpenRouter.ai)
-              </span>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-400 font-mono block">
+                  AI Security Intelligence Engine
+                </span>
+                <span className="text-[10px] font-mono text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded-md">
+                  5 Providers Supported
+                </span>
+              </div>
+              
               <select
                 value={aiModel}
-                onChange={(e) => setAiModel(e.target.value)}
-                className="w-full px-4 py-3 glass-input rounded-xl text-xs font-mono focus:outline-none cursor-pointer"
+                onChange={(e) => handleModelChange(e.target.value)}
+                className="w-full px-4 py-3 glass-input rounded-xl text-xs font-mono focus:outline-none cursor-pointer border border-slate-700/80 bg-slate-900/90 text-slate-200"
               >
-                <option value="deepseek/deepseek-chat" className="bg-slate-900">
-                  deepseek/deepseek-chat (DeepSeek V3 - High Accuracy & Fast)
-                </option>
-                <option value="deepseek/deepseek-r1:free" className="bg-slate-900">
-                  deepseek/deepseek-r1:free (DeepSeek R1 - Advanced Reasoning)
-                </option>
-                <option value="google/gemini-2.0-flash-exp:free" className="bg-slate-900">
-                  google/gemini-2.0-flash-exp:free (Gemini 2.0 Flash)
-                </option>
-                <option value="anthropic/claude-3.5-sonnet" className="bg-slate-900">
-                  anthropic/claude-3.5-sonnet (Claude 3.5 Sonnet)
-                </option>
-                <option value="meta-llama/llama-3.3-70b-instruct" className="bg-slate-900">
-                  meta-llama/llama-3.3-70b-instruct (Meta Llama 3.3 70B)
-                </option>
-                <option value="qwen/qwen-2.5-coder-32b-instruct" className="bg-slate-900">
-                  qwen/qwen-2.5-coder-32b-instruct (Qwen 2.5 Coder 32B)
-                </option>
+                <optgroup label="OpenRouter.ai (Recommended Cloud Hub)" className="bg-slate-950 text-violet-400 font-bold">
+                  <option value="deepseek/deepseek-chat" className="bg-slate-900 text-slate-200 font-mono py-1">
+                    deepseek/deepseek-chat (DeepSeek V3 - High Accuracy & Fast)
+                  </option>
+                  <option value="deepseek/deepseek-r1:free" className="bg-slate-900 text-slate-200 font-mono py-1">
+                    deepseek/deepseek-r1:free (DeepSeek R1 - Advanced Reasoning)
+                  </option>
+                  <option value="google/gemini-2.0-flash-exp:free" className="bg-slate-900 text-slate-200 font-mono py-1">
+                    google/gemini-2.0-flash-exp:free (Gemini 2.0 Flash)
+                  </option>
+                  <option value="anthropic/claude-3.5-sonnet" className="bg-slate-900 text-slate-200 font-mono py-1">
+                    anthropic/claude-3.5-sonnet (Claude 3.5 Sonnet)
+                  </option>
+                  <option value="meta-llama/llama-3.3-70b-instruct" className="bg-slate-900 text-slate-200 font-mono py-1">
+                    meta-llama/llama-3.3-70b-instruct (Meta Llama 3.3 70B)
+                  </option>
+                  <option value="qwen/qwen-2.5-coder-32b-instruct" className="bg-slate-900 text-slate-200 font-mono py-1">
+                    qwen/qwen-2.5-coder-32b-instruct (Qwen 2.5 Coder 32B)
+                  </option>
+                  <option value="openai/gpt-4o-mini" className="bg-slate-900 text-slate-200 font-mono py-1">
+                    openai/gpt-4o-mini (GPT-4o Mini via OpenRouter)
+                  </option>
+                </optgroup>
+                <optgroup label="OpenAI (Direct Cloud API)" className="bg-slate-950 text-sky-400 font-bold">
+                  <option value="gpt-4o-mini" className="bg-slate-900 text-slate-200 font-mono py-1">
+                    gpt-4o-mini (OpenAI Fast Intelligence)
+                  </option>
+                  <option value="gpt-4o" className="bg-slate-900 text-slate-200 font-mono py-1">
+                    gpt-4o (OpenAI Omni Flagship Multi-Step Reasoning)
+                  </option>
+                  <option value="gpt-4-turbo" className="bg-slate-900 text-slate-200 font-mono py-1">
+                    gpt-4-turbo (OpenAI Deep Code Audit)
+                  </option>
+                </optgroup>
+                <optgroup label="Google Gemini (Direct Cloud API)" className="bg-slate-950 text-cyan-400 font-bold">
+                  <option value="gemini-1.5-flash" className="bg-slate-900 text-slate-200 font-mono py-1">
+                    gemini-1.5-flash (Google Ultra Fast & Low Latency)
+                  </option>
+                  <option value="gemini-1.5-pro" className="bg-slate-900 text-slate-200 font-mono py-1">
+                    gemini-1.5-pro (Google Deep Reasoning & Large Context)
+                  </option>
+                </optgroup>
+                <optgroup label="Anthropic Claude (Direct Cloud API)" className="bg-slate-950 text-orange-400 font-bold">
+                  <option value="claude-3-5-sonnet-20240620" className="bg-slate-900 text-slate-200 font-mono py-1">
+                    claude-3-5-sonnet-20240620 (Anthropic State-of-the-Art SAST)
+                  </option>
+                  <option value="claude-3-haiku-20240307" className="bg-slate-900 text-slate-200 font-mono py-1">
+                    claude-3-haiku-20240307 (Anthropic Rapid Threat Assessment)
+                  </option>
+                </optgroup>
+                <optgroup label="xAI Grok (Direct Cloud API)" className="bg-slate-950 text-slate-300 font-bold">
+                  <option value="grok-2-1212" className="bg-slate-900 text-slate-200 font-mono py-1">
+                    grok-2-1212 (xAI Grok 2 Advanced Reasoning)
+                  </option>
+                  <option value="grok-2-mini" className="bg-slate-900 text-slate-200 font-mono py-1">
+                    grok-2-mini (xAI Grok 2 Mini Fast Intelligence)
+                  </option>
+                </optgroup>
               </select>
-              <span className="text-[11px] text-violet-400 font-mono flex items-center gap-1">
-                <Sparkles className="w-3.5 h-3.5" /> OpenRouter.ai cloud intelligence engine active.
-              </span>
+
+              <div className="flex items-center justify-between text-[11px] font-mono pt-1">
+                <span className="flex items-center gap-1.5 text-slate-300">
+                  <Sparkles className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                  <span>Selected Engine:</span>
+                  <span className="font-bold text-cyan-300 uppercase">{selectedProvider}</span>
+                  <span className="text-slate-400 truncate max-w-[200px]">({aiModel})</span>
+                </span>
+                <span className="text-slate-500 text-[10px] hidden sm:inline">
+                  ⚡ Auto-synced to Security Scanner
+                </span>
+              </div>
             </div>
           </div>
         </GlassCard>

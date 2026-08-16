@@ -330,7 +330,7 @@ export const SettingsPage: React.FC = () => {
             {
               id: "openrouter",
               name: "OpenRouter",
-              badge: "PRO CLOUD",
+              badge: "ROUTER",
               badgeType: "recommended",
               status: configuredKeys.openrouter ? "Configured" : "Key Required",
               statusType: configuredKeys.openrouter ? "success" : "warning",
@@ -437,18 +437,18 @@ export const SettingsPage: React.FC = () => {
                 }`}
               >
                 {/* Header: Icon + Name on Left, Tag on Right */}
-                <div className="flex items-center justify-between gap-2 mb-3">
-                  <div className="flex items-center gap-2 min-w-0">
+                <div className="flex items-center justify-between gap-1.5 mb-3">
+                  <div className="flex items-center gap-1.5 min-w-0">
                     <div className={`p-1.5 rounded-lg border ${provider.iconBg} ${provider.iconColor} shrink-0`}>
                       <ProviderIcon className="w-4 h-4" />
                     </div>
-                    <span className="text-sm font-bold text-white tracking-wide font-sans truncate" title={provider.name}>
+                    <span className="text-xs sm:text-sm font-bold text-white tracking-tight font-sans truncate" title={provider.name}>
                       {provider.name}
                     </span>
                   </div>
 
                   <span
-                    className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-bold uppercase tracking-wider shrink-0 whitespace-nowrap ${
+                    className={`px-1.5 py-0.5 rounded text-[8.5px] font-mono font-bold uppercase tracking-wider shrink-0 whitespace-nowrap ${
                       provider.badgeType === "recommended"
                         ? "bg-violet-500/20 text-violet-300 border border-violet-500/40"
                         : "bg-slate-900/90 text-slate-400 border border-slate-800"

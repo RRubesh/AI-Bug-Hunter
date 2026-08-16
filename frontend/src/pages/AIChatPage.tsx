@@ -375,18 +375,68 @@ export const AIChatPage: React.FC<{ initialScanId?: number | null }> = ({ initia
             </GlassCard>
           )}
 
-          {/* Active Engine Card */}
-          <GlassCard className="p-4 space-y-2">
-            <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider block">Reasoning Engine</span>
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center">
-                <Bot className="w-4 h-4 text-cyan-400" />
-              </div>
-              <div className="min-w-0">
-                <h4 className="text-xs font-bold text-slate-100 capitalize">{selectedProvider} LLM</h4>
-                <p className="text-[10px] text-cyan-400 font-mono font-bold truncate">{selectedModel}</p>
-              </div>
+          {/* Active Engine Card & Quick Switcher */}
+          <GlassCard className="p-4 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider block">Reasoning Engine</span>
+              <span className="text-[9px] font-mono text-cyan-400 bg-cyan-500/10 px-1.5 py-0.5 rounded border border-cyan-500/20 uppercase font-bold">
+                {selectedProvider}
+              </span>
             </div>
+            
+            <select
+              value={selectedModel}
+              onChange={(e) => {
+                const newModel = e.target.value;
+                setSelectedModel(newModel);
+                let prov = "openrouter";
+                if (newModel.startsWith("gpt-") || newModel.startsWith("o1") || newModel.startsWith("o3")) prov = "openai";
+                else if (newModel.startsWith("gemini-")) prov = "gemini";
+                else if (newModel.startsWith("claude-")) prov = "claude";
+                else if (newModel.startsWith("grok-")) prov = "grok";
+                setSelectedProvider(prov);
+                api.updateSettings({ ai_provider: prov, default_model: newModel }).catch(() => {});
+              }}
+              className="w-full px-2.5 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs font-mono text-cyan-300 focus:outline-none focus:border-cyan-500 cursor-pointer"
+            >
+              <optgroup label="OpenRouter Hub" className="bg-slate-950 text-violet-400 font-bold">
+                <option value="deepseek/deepseek-chat">DeepSeek V3 (Fast & Accurate)</option>
+                <option value="deepseek/deepseek-r1:free">DeepSeek R1 (Free Tier)</option>
+                <option value="deepseek/deepseek-r1">DeepSeek R1 (Full Reasoning)</option>
+                <option value="google/gemini-2.0-flash-001">Gemini 2.0 Flash</option>
+                <option value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet</option>
+                <option value="openai/o3-mini">OpenAI o3-mini</option>
+                <option value="openai/gpt-4o-mini">GPT-4o Mini</option>
+                <option value="meta-llama/llama-3.3-70b-instruct">Meta Llama 3.3 70B</option>
+                <option value="qwen/qwen-2.5-coder-32b-instruct">Qwen 2.5 Coder 32B</option>
+              </optgroup>
+              <optgroup label="OpenAI Direct" className="bg-slate-950 text-sky-400 font-bold">
+                <option value="gpt-4o">GPT-4o (Omni Flagship)</option>
+                <option value="gpt-4o-mini">GPT-4o Mini</option>
+                <option value="o3-mini">o3-mini (Code Reasoning)</option>
+                <option value="o1">o1 (Deep Reasoning)</option>
+                <option value="o1-mini">o1-mini (Fast Reasoning)</option>
+                <option value="gpt-4-turbo">GPT-4 Turbo</option>
+              </optgroup>
+              <optgroup label="Google Gemini Direct" className="bg-slate-950 text-cyan-400 font-bold">
+                <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+                <option value="gemini-2.0-flash-thinking-exp">Gemini 2.0 Thinking</option>
+                <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+                <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+                <option value="gemini-1.5-flash-8b">Gemini 1.5 Flash 8B</option>
+              </optgroup>
+              <optgroup label="Anthropic Claude Direct" className="bg-slate-950 text-orange-400 font-bold">
+                <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet v2</option>
+                <option value="claude-3-5-haiku-20241022">Claude 3.5 Haiku</option>
+                <option value="claude-3-opus-20240229">Claude 3 Opus</option>
+                <option value="claude-3-haiku-20240307">Claude 3 Haiku</option>
+              </optgroup>
+              <optgroup label="xAI Grok Direct" className="bg-slate-950 text-slate-300 font-bold">
+                <option value="grok-2-1212">Grok 2 Reasoning</option>
+                <option value="grok-2-vision-1212">Grok 2 Vision</option>
+                <option value="grok-2-mini">Grok 2 Mini</option>
+              </optgroup>
+            </select>
           </GlassCard>
 
           {/* Clear Chat */}

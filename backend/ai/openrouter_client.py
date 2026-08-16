@@ -7,13 +7,15 @@ from backend.config import settings
 CURATED_OPENROUTER_MODELS = [
     "deepseek/deepseek-chat",
     "deepseek/deepseek-r1:free",
+    "deepseek/deepseek-r1",
+    "google/gemini-2.0-flash-001",
     "google/gemini-2.0-flash-exp:free",
-    "google/gemini-flash-1.5",
+    "anthropic/claude-3.5-sonnet",
+    "openai/o3-mini",
+    "openai/gpt-4o-mini",
     "meta-llama/llama-3.3-70b-instruct",
     "qwen/qwen-2.5-coder-32b-instruct",
-    "anthropic/claude-3.5-sonnet",
-    "openai/gpt-4o-mini",
-    "mistralai/mistral-large-2407",
+    "mistralai/mistral-large-2411",
 ]
 
 class OpenRouterClient:
@@ -33,15 +35,15 @@ class OpenRouterClient:
     async def list_models(self) -> List[str]:
         provider = settings.AI_PROVIDER
         if provider == "openai":
-            return ["gpt-4o-mini", "gpt-4o", "gpt-4-turbo", "gpt-3.5-turbo"]
+            return ["gpt-4o-mini", "gpt-4o", "o3-mini", "o1", "o1-mini", "gpt-4-turbo", "gpt-3.5-turbo"]
         elif provider == "gemini":
-            return ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-1.0-pro"]
+            return ["gemini-2.0-flash", "gemini-2.0-flash-thinking-exp", "gemini-1.5-pro", "gemini-1.5-flash", "gemini-1.5-flash-8b"]
         elif provider == "groq":
-            return ["llama-3.1-8b-instant", "llama-3.1-70b-versatile", "mixtral-8x7b-32768"]
+            return ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "deepseek-r1-distill-llama-70b", "mixtral-8x7b-32768"]
         elif provider == "claude":
-            return ["claude-3-5-sonnet-20240620", "claude-3-haiku-20240307", "claude-3-opus-20240229"]
+            return ["claude-3-5-sonnet-20241022", "claude-3-5-haiku-20241022", "claude-3-opus-20240229", "claude-3-haiku-20240307"]
         elif provider == "grok":
-            return ["grok-2-1212", "grok-2-vision-1212", "grok-beta"]
+            return ["grok-2-1212", "grok-2-vision-1212", "grok-2-mini", "grok-beta"]
         
         # OpenRouter provider
         key = settings.OPENROUTER_API_KEY

@@ -14,17 +14,50 @@ const INITIAL_PROVIDER_MODELS: Record<string, string[]> = {
   openrouter: [
     "deepseek/deepseek-chat",
     "deepseek/deepseek-r1:free",
+    "deepseek/deepseek-r1",
+    "google/gemini-2.0-flash-001",
     "google/gemini-2.0-flash-exp:free",
-    "meta-llama/llama-3.3-70b-instruct",
     "anthropic/claude-3.5-sonnet",
-    "qwen/qwen-2.5-coder-32b-instruct",
+    "openai/o3-mini",
     "openai/gpt-4o-mini",
+    "meta-llama/llama-3.3-70b-instruct",
+    "qwen/qwen-2.5-coder-32b-instruct",
+    "mistralai/mistral-large-2411",
   ],
-  openai: ["gpt-4o-mini", "gpt-4o", "gpt-4-turbo", "gpt-3.5-turbo"],
-  gemini: ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-1.0-pro"],
-  groq: ["llama-3.1-8b-instant", "llama-3.1-70b-versatile", "mixtral-8x7b-32768"],
-  claude: ["claude-3-haiku", "claude-3-5-sonnet", "claude-3-opus"],
-  grok: ["grok-2-mini", "grok-2-1212", "grok-beta"],
+  openai: [
+    "gpt-4o",
+    "gpt-4o-mini",
+    "o3-mini",
+    "o1",
+    "o1-mini",
+    "gpt-4-turbo",
+    "gpt-3.5-turbo",
+  ],
+  gemini: [
+    "gemini-2.0-flash",
+    "gemini-2.0-flash-thinking-exp",
+    "gemini-1.5-pro",
+    "gemini-1.5-flash",
+    "gemini-1.5-flash-8b",
+  ],
+  claude: [
+    "claude-3-5-sonnet-20241022",
+    "claude-3-5-haiku-20241022",
+    "claude-3-opus-20240229",
+    "claude-3-haiku-20240307",
+  ],
+  grok: [
+    "grok-2-1212",
+    "grok-2-vision-1212",
+    "grok-2-mini",
+    "grok-beta",
+  ],
+  groq: [
+    "llama-3.3-70b-versatile",
+    "llama-3.1-8b-instant",
+    "deepseek-r1-distill-llama-70b",
+    "mixtral-8x7b-32768",
+  ],
 };
 
 export const SettingsPage: React.FC = () => {
@@ -438,11 +471,11 @@ export const SettingsPage: React.FC = () => {
               >
                 {/* Header: Icon + Name on Left, Tag on Right */}
                 <div className="flex items-center justify-between gap-1.5 mb-3">
-                  <div className="flex items-center gap-1.5 min-w-0">
+                  <div className="flex items-center gap-1.5">
                     <div className={`p-1.5 rounded-lg border ${provider.iconBg} ${provider.iconColor} shrink-0`}>
                       <ProviderIcon className="w-4 h-4" />
                     </div>
-                    <span className="text-xs sm:text-sm font-bold text-white tracking-tight font-sans truncate" title={provider.name}>
+                    <span className="text-sm font-bold text-white font-sans whitespace-nowrap">
                       {provider.name}
                     </span>
                   </div>

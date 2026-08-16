@@ -659,16 +659,28 @@ export const UploadProject: React.FC<UploadProjectProps> = ({ onUploadSuccess, o
               >
                 <optgroup label="OpenRouter.ai (Recommended Cloud Hub)" className="bg-slate-950 text-violet-400 font-bold">
                   <option value="deepseek/deepseek-chat" className="bg-slate-900 text-slate-200 font-mono py-1">
-                    deepseek/deepseek-chat (DeepSeek V3 - High Accuracy & Fast)
+                    deepseek/deepseek-chat (DeepSeek V3 671B - High Accuracy & Fast)
                   </option>
                   <option value="deepseek/deepseek-r1:free" className="bg-slate-900 text-slate-200 font-mono py-1">
-                    deepseek/deepseek-r1:free (DeepSeek R1 - Advanced Reasoning)
+                    deepseek/deepseek-r1:free (DeepSeek R1 Reasoning - Free Tier)
+                  </option>
+                  <option value="deepseek/deepseek-r1" className="bg-slate-900 text-slate-200 font-mono py-1">
+                    deepseek/deepseek-r1 (DeepSeek R1 Full Reasoning)
+                  </option>
+                  <option value="google/gemini-2.0-flash-001" className="bg-slate-900 text-slate-200 font-mono py-1">
+                    google/gemini-2.0-flash-001 (Google Gemini 2.0 Flash)
                   </option>
                   <option value="google/gemini-2.0-flash-exp:free" className="bg-slate-900 text-slate-200 font-mono py-1">
-                    google/gemini-2.0-flash-exp:free (Gemini 2.0 Flash)
+                    google/gemini-2.0-flash-exp:free (Gemini 2.0 Flash Free)
                   </option>
                   <option value="anthropic/claude-3.5-sonnet" className="bg-slate-900 text-slate-200 font-mono py-1">
                     anthropic/claude-3.5-sonnet (Claude 3.5 Sonnet)
+                  </option>
+                  <option value="openai/o3-mini" className="bg-slate-900 text-slate-200 font-mono py-1">
+                    openai/o3-mini (OpenAI o3-mini Reasoning)
+                  </option>
+                  <option value="openai/gpt-4o-mini" className="bg-slate-900 text-slate-200 font-mono py-1">
+                    openai/gpt-4o-mini (GPT-4o Mini via OpenRouter)
                   </option>
                   <option value="meta-llama/llama-3.3-70b-instruct" className="bg-slate-900 text-slate-200 font-mono py-1">
                     meta-llama/llama-3.3-70b-instruct (Meta Llama 3.3 70B)
@@ -676,40 +688,67 @@ export const UploadProject: React.FC<UploadProjectProps> = ({ onUploadSuccess, o
                   <option value="qwen/qwen-2.5-coder-32b-instruct" className="bg-slate-900 text-slate-200 font-mono py-1">
                     qwen/qwen-2.5-coder-32b-instruct (Qwen 2.5 Coder 32B)
                   </option>
-                  <option value="openai/gpt-4o-mini" className="bg-slate-900 text-slate-200 font-mono py-1">
-                    openai/gpt-4o-mini (GPT-4o Mini via OpenRouter)
+                  <option value="mistralai/mistral-large-2411" className="bg-slate-900 text-slate-200 font-mono py-1">
+                    mistralai/mistral-large-2411 (Mistral Large 2411)
                   </option>
                 </optgroup>
                 <optgroup label="OpenAI (Direct Cloud API)" className="bg-slate-950 text-sky-400 font-bold">
-                  <option value="gpt-4o-mini" className="bg-slate-900 text-slate-200 font-mono py-1">
-                    gpt-4o-mini (OpenAI Fast Intelligence)
-                  </option>
                   <option value="gpt-4o" className="bg-slate-900 text-slate-200 font-mono py-1">
                     gpt-4o (OpenAI Omni Flagship Multi-Step Reasoning)
+                  </option>
+                  <option value="gpt-4o-mini" className="bg-slate-900 text-slate-200 font-mono py-1">
+                    gpt-4o-mini (OpenAI Fast Lightweight Intelligence)
+                  </option>
+                  <option value="o3-mini" className="bg-slate-900 text-slate-200 font-mono py-1">
+                    o3-mini (OpenAI Next-Gen STEM & Code Reasoning)
+                  </option>
+                  <option value="o1" className="bg-slate-900 text-slate-200 font-mono py-1">
+                    o1 (OpenAI Deep Reasoning Leader)
+                  </option>
+                  <option value="o1-mini" className="bg-slate-900 text-slate-200 font-mono py-1">
+                    o1-mini (OpenAI Fast Reasoning)
                   </option>
                   <option value="gpt-4-turbo" className="bg-slate-900 text-slate-200 font-mono py-1">
                     gpt-4-turbo (OpenAI Deep Code Audit)
                   </option>
                 </optgroup>
                 <optgroup label="Google Gemini (Direct Cloud API)" className="bg-slate-950 text-cyan-400 font-bold">
+                  <option value="gemini-2.0-flash" className="bg-slate-900 text-slate-200 font-mono py-1">
+                    gemini-2.0-flash (Google Gemini 2.0 Next-Gen Flagship)
+                  </option>
+                  <option value="gemini-2.0-flash-thinking-exp" className="bg-slate-900 text-slate-200 font-mono py-1">
+                    gemini-2.0-flash-thinking-exp (Gemini 2.0 Thinking & Deep Reasoning)
+                  </option>
+                  <option value="gemini-1.5-pro" className="bg-slate-900 text-slate-200 font-mono py-1">
+                    gemini-1.5-pro (Google 2M Token Deep Code Analysis)
+                  </option>
                   <option value="gemini-1.5-flash" className="bg-slate-900 text-slate-200 font-mono py-1">
                     gemini-1.5-flash (Google Ultra Fast & Low Latency)
                   </option>
-                  <option value="gemini-1.5-pro" className="bg-slate-900 text-slate-200 font-mono py-1">
-                    gemini-1.5-pro (Google Deep Reasoning & Large Context)
+                  <option value="gemini-1.5-flash-8b" className="bg-slate-900 text-slate-200 font-mono py-1">
+                    gemini-1.5-flash-8b (Google Ultra-Compact High Throughput)
                   </option>
                 </optgroup>
                 <optgroup label="Anthropic Claude (Direct Cloud API)" className="bg-slate-950 text-orange-400 font-bold">
-                  <option value="claude-3-5-sonnet-20240620" className="bg-slate-900 text-slate-200 font-mono py-1">
-                    claude-3-5-sonnet-20240620 (Anthropic State-of-the-Art SAST)
+                  <option value="claude-3-5-sonnet-20241022" className="bg-slate-900 text-slate-200 font-mono py-1">
+                    claude-3-5-sonnet-20241022 (Claude 3.5 Sonnet v2 - SOTA Code Audit)
+                  </option>
+                  <option value="claude-3-5-haiku-20241022" className="bg-slate-900 text-slate-200 font-mono py-1">
+                    claude-3-5-haiku-20241022 (Claude 3.5 Haiku - Ultra Fast & Precise)
+                  </option>
+                  <option value="claude-3-opus-20240229" className="bg-slate-900 text-slate-200 font-mono py-1">
+                    claude-3-opus-20240229 (Claude 3 Opus - Deep Comprehensive Review)
                   </option>
                   <option value="claude-3-haiku-20240307" className="bg-slate-900 text-slate-200 font-mono py-1">
-                    claude-3-haiku-20240307 (Anthropic Rapid Threat Assessment)
+                    claude-3-haiku-20240307 (Claude 3 Haiku - Rapid Threat Assessment)
                   </option>
                 </optgroup>
                 <optgroup label="xAI Grok (Direct Cloud API)" className="bg-slate-950 text-slate-300 font-bold">
                   <option value="grok-2-1212" className="bg-slate-900 text-slate-200 font-mono py-1">
                     grok-2-1212 (xAI Grok 2 Advanced Reasoning)
+                  </option>
+                  <option value="grok-2-vision-1212" className="bg-slate-900 text-slate-200 font-mono py-1">
+                    grok-2-vision-1212 (xAI Grok 2 Vision Multimodal)
                   </option>
                   <option value="grok-2-mini" className="bg-slate-900 text-slate-200 font-mono py-1">
                     grok-2-mini (xAI Grok 2 Mini Fast Intelligence)

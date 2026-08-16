@@ -257,12 +257,16 @@ export const AIChatPage: React.FC<{ initialScanId?: number | null }> = ({ initia
     };
 
     try {
-      if (selectedScanId) {
-        const response = await api.sendChatMessage(selectedScanId, query);
+      const response = await api.sendChatMessage(
+        selectedScanId,
+        query,
+        undefined,
+        selectedProvider,
+        selectedModel
+      );
+      if (response && response.message) {
         addAI(response.message);
       } else {
-        // Fallback local reasoning
-        await new Promise((r) => setTimeout(r, 900));
         addAI(generateFallbackResponse(query, selectedProvider, selectedModel, vulnerabilities));
       }
     } catch {
@@ -917,26 +921,34 @@ function generateFallbackResponse(
 ): string {
   const q = query.toLowerCase();
 
-  if (q.includes("sql") || q.includes("injection")) {
-    return `🛡️ **SQL Injection (CWE-89) Remediation**\n\nSQL injection occurs when user input is concatenated directly into SQL queries.\n\n**Secure Pattern — Parameterized Queries (Python):**\n\`\`\`python\n# ❌ VULNERABLE\ncursor.execute(f"SELECT * FROM users WHERE username = '{username}'")\n\n# ✅ SECURE\ncursor.execute("SELECT * FROM users WHERE username = %s", (username,))\nuser = cursor.fetchone()\n\`\`\`\n\n**FastAPI with SQLAlchemy:**\n\`\`\`python\nresult = db.execute(\n    select(User).where(User.username == username)\n).scalars().first()\n\`\`\``;
+  if (q.includes("sql") || q.includes("injection") || q.includes("sqli")) {
+    return `🛡️ **SQL Injection (CWE-89) Remediation**\n\nSQL injection occurs when user input is concatenated directly into SQL queries.\n\n**Secure Pattern — Parameterized Queries (Python):**\n\`\`\`python\n# ❌ VULNERABLE (Raw string formatting)\ncursor.execute(f"SELECT * FROM users WHERE username = '{username}'")\n\n# ✅ SECURE (Parameterized query with placeholders)\ncursor.execute("SELECT * FROM users WHERE username = %s", (username,))\nuser = cursor.fetchone()\n\`\`\`\n\n**FastAPI with SQLAlchemy 2.0:**\n\`\`\`python\nresult = db.execute(\n    select(User).where(User.username == username)\n).scalars().first()\n\`\`\``;
   }
 
-  if (q.includes("secret") || q.includes("hardcode") || q.includes("api key")) {
-    return `🔑 **Hardcoded Secret Remediation (OWASP A07:2021)**\n\n**Steps:**\n1. Rotate compromised credentials immediately\n2. Remove secrets from source code and git history\n3. Store in environment variables or a secrets manager\n\n**Secure Pattern:**\n\`\`\`python\nimport os\nfrom dotenv import load_dotenv\n\nload_dotenv()\nOPENAI_API_KEY = os.getenv("OPENAI_API_KEY")  # Never hardcode!\n\`\`\`\n\n**For production:** use AWS Secrets Manager, HashiCorp Vault, or Azure Key Vault.`;
+  if (q.includes("secret") || q.includes("hardcode") || q.includes("api key") || q.includes("token")) {
+    return `🔑 **Hardcoded Secret Remediation (OWASP A07:2021 / CWE-798)**\n\n**Steps:**\n1. Rotate compromised credentials immediately in your provider dashboard\n2. Remove secrets from source code and git history\n3. Store secrets exclusively in environment variables (\`.env\`) or a secrets manager\n\n**Secure Pattern (Python):**\n\`\`\`python\nimport os\nfrom dotenv import load_dotenv\n\nload_dotenv()\nAPI_KEY = os.getenv("API_KEY")  # Read from environment safely\n\`\`\``;
+  }
+
+  if (q.includes("xss") || q.includes("cross-site") || q.includes("script")) {
+    return `⚡ **Cross-Site Scripting (XSS - CWE-79) Prevention**\n\nNever inject raw user input directly into HTML without context-aware sanitization.\n\n**Secure Pattern (DOM / TypeScript):**\n\`\`\`typescript\n// ❌ VULNERABLE\nelement.innerHTML = userComment;\n\n// ✅ SECURE\nelement.textContent = userComment;\n// Or sanitize HTML rich-text:\nelement.innerHTML = DOMPurify.sanitize(userComment);\n\`\`\``;
+  }
+
+  if (q.includes("rce") || q.includes("command") || q.includes("exec") || q.includes("subprocess")) {
+    return `🛑 **Command Injection Mitigation (CWE-78)**\n\nAvoid passing user input into system shell interpreters (\`os.system\` or \`shell=True\`).\n\n**Secure Pattern (Python):**\n\`\`\`python\n# ✅ SECURE: Pass arguments as a list without shell execution\nimport subprocess\nresult = subprocess.run(["ping", "-c", "4", sanitized_host], capture_output=True, text=True, timeout=5)\n\`\`\``;
   }
 
   if (q.includes("cors") || q.includes("csrf")) {
-    return `⚡ **CORS & CSRF Security Configuration**\n\nAvoid wildcard origins (\`*\`) in production. Use specific trusted domains.\n\n**FastAPI:**\n\`\`\`python\nfrom fastapi.middleware.cors import CORSMiddleware\n\napp.add_middleware(\n    CORSMiddleware,\n    allow_origins=["https://yourdomain.com"],\n    allow_credentials=True,\n    allow_methods=["GET", "POST"],\n    allow_headers=["Authorization", "Content-Type"],\n)\n\`\`\``;
+    return `⚡ **CORS & CSRF Security Configuration**\n\nAvoid wildcard origins (\`*\`) in production. Use specific trusted domains.\n\n**FastAPI:**\n\`\`\`python\nfrom fastapi.middleware.cors import CORSMiddleware\n\napp.add_middleware(\n    CORSMiddleware,\n    allow_origins=["https://app.yourdomain.com"],\n    allow_credentials=True,\n    allow_methods=["GET", "POST", "PUT", "DELETE"],\n    allow_headers=["Authorization", "Content-Type"],\n)\n\`\`\``;
   }
 
-  if (q.includes("owasp")) {
-    return `📋 **OWASP Top 10 Remediation Checklist**\n\n1. **A01 Broken Access Control** — Enforce principle of least privilege; deny by default\n2. **A02 Cryptographic Failures** — Use TLS 1.3+; never roll your own crypto\n3. **A03 Injection** — Parameterized queries; input validation; ORM usage\n4. **A04 Insecure Design** — Threat modeling; secure design patterns\n5. **A05 Security Misconfiguration** — Disable debug in prod; patch regularly\n6. **A06 Vulnerable Components** — Audit dependencies with \`pip-audit\` / \`npm audit\`\n7. **A07 Auth Failures** — MFA; strong password policies; secure session handling\n8. **A08 Integrity Failures** — Code signing; verify supply chain\n9. **A09 Logging Failures** — Log security events; centralize with SIEM\n10. **A10 SSRF** — Validate/sanitize URLs; block internal network access`;
+  if (q.includes("owasp") || q.includes("top 10") || q.includes("checklist")) {
+    return `📋 **OWASP Top 10 Security Highlights**\n\n1. **A01 Broken Access Control** — Enforce principle of least privilege; deny by default\n2. **A02 Cryptographic Failures** — Use Argon2id/bcrypt; TLS 1.3+; never hardcode keys\n3. **A03 Injection** — Parameterized queries; input validation; ORMs\n4. **A04 Insecure Design** — Threat modeling; secure design patterns\n5. **A05 Security Misconfiguration** — Disable debug in prod; harden headers\n6. **A06 Vulnerable Components** — Audit dependencies with \`pip-audit\` / \`npm audit\`\n7. **A07 Auth Failures** — MFA; strong password policies; secure sessions\n8. **A08 Integrity Failures** — Code signing; verify supply chain\n9. **A09 Logging Failures** — Log security events; centralize monitoring\n10. **A10 SSRF** — Validate URLs; block loopback/private IPs`;
   }
 
-  return `🤖 **AI Security Analysis** (${provider.toUpperCase()} · ${model})\n\nQuery received: *"${query}"*\n\n${
+  return `🛡️ **AI Security Assistant** (${provider.toUpperCase()} · ${model})\n\n**Analysis on your inquiry:** *"${query}"*\n\n1. **Defense in Depth**: Implement validation at client, API gateway, and database layers.\n2. **Least Privilege**: Ensure microservices and database roles only have strictly required capabilities.\n3. **Continuous SAST Auditing**: Run automated security scans on code commits to prevent CWE introduction.${
     vulns.length > 0
-      ? `I have ${vulns.length} vulnerabilities indexed for this scan (${vulns.filter(v => v.severity === "CRITICAL" || v.severity === "HIGH").length} Critical/High). Click any finding on the left to get a targeted fix, or ask me a more specific question!`
-      : "Select a completed scan session on the left to load vulnerability context for targeted remediation advice."
+      ? `\n\n*Targeted Scan Context: ${vulns.length} vulnerabilities indexed for this project. Click any finding on the left to review its fix!*`
+      : `\n\n> 💡 **Tip:** To connect live cloud AI reasoning, enter your **${provider.toUpperCase()} API Key** using the **'🔑 Enter Key'** button above or in Settings.`
   }`;
 }
 

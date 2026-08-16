@@ -17,24 +17,36 @@ def get_current_active_paid_or_admin(current_user: User = Depends(get_current_us
         )
     return current_user
 
+@router.post("/chat", response_model=ChatMessageResponse)
 @router.post("/chat/{scan_id}", response_model=ChatMessageResponse)
 async def chat_about_scan(
-    scan_id: int,
     query: ChatQuery,
+    scan_id: Optional[int] = None,
     current_user: User = Depends(get_current_active_paid_or_admin),
     db: Session = Depends(get_db)
 ):
-    scan = db.query(Scan).filter(Scan.id == scan_id).first()
-    if not scan:
-        raise HTTPException(status_code=404, detail="Scan session not found")
-        
-    # Check if project belongs to user (or is admin)
-    if scan.project.owner_id != current_user.id and current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Not authorized to access this scan")
+    code_context = ""
+    valid_scan_id = None
+    
+    if scan_id and scan_id > 0:
+        scan = db.query(Scan).filter(Scan.id == scan_id).first()
+        if scan:
+            if scan.project.owner_id == current_user.id or current_user.role == "admin":
+                valid_scan_id = scan.id
+                if query.vulnerability_id:
+                    vuln = db.query(Vulnerability).filter(Vulnerability.id == query.vulnerability_id).first()
+                    if vuln and vuln.scan_id == scan.id:
+                        code_context = (
+                            f"File: {vuln.file_path}\n"
+                            f"Severity: {vuln.severity}\n"
+                            f"Category: {vuln.category}\n"
+                            f"Message: {vuln.message}\n"
+                            f"Snippet:\n{vuln.code_snippet or ''}"
+                        )
 
     # Save User message
     user_msg = ChatMessage(
-        scan_id=scan.id,
+        scan_id=valid_scan_id,
         user_id=current_user.id,
         message=query.message,
         is_ai=False
@@ -43,31 +55,27 @@ async def chat_about_scan(
     db.commit()
     db.refresh(user_msg)
 
-    # Gather Code Context (if vulnerability is selected)
-    code_context = ""
-    if query.vulnerability_id:
-        vuln = db.query(Vulnerability).filter(Vulnerability.id == query.vulnerability_id).first()
-        if vuln and vuln.scan_id == scan_id:
-            code_context = (
-                f"File: {vuln.file_path}\n"
-                f"Severity: {vuln.severity}\n"
-                f"Category: {vuln.category}\n"
-                f"Message: {vuln.message}\n"
-                f"Snippet:\n{vuln.code_snippet or ''}"
-            )
-
-    # Get Chat History for this scan
-    chat_history = db.query(ChatMessage).filter(ChatMessage.scan_id == scan.id).order_by(ChatMessage.created_at.asc()).all()
-    # Limit history to last 10 messages to keep prompt size small
+    # Get Chat History (either for this scan or general user chat)
+    if valid_scan_id:
+        chat_history = db.query(ChatMessage).filter(ChatMessage.scan_id == valid_scan_id).order_by(ChatMessage.created_at.asc()).all()
+    else:
+        chat_history = db.query(ChatMessage).filter(ChatMessage.user_id == current_user.id, ChatMessage.scan_id == None).order_by(ChatMessage.created_at.asc()).all()
+    
     chat_history = chat_history[-10:]
 
-    # Fetch AI response
-    ai_reply = await openrouter_client.chat_about_scan(chat_history, query.message, code_context)
+    # Fetch AI response with specified provider & model
+    ai_reply = await openrouter_client.chat_about_scan(
+        chat_history,
+        query.message,
+        code_context,
+        provider=query.provider,
+        model=query.model
+    )
 
     # Save AI message
     ai_msg = ChatMessage(
-        scan_id=scan.id,
-        user_id=current_user.id,  # references this user's chat session
+        scan_id=valid_scan_id,
+        user_id=current_user.id,
         message=ai_reply,
         is_ai=True
     )
@@ -83,7 +91,7 @@ async def chat_about_scan(
                 mongo_db.chat_messages.insert_many([
                     {
                         "message_id": user_msg.id,
-                        "scan_id": scan.id,
+                        "scan_id": valid_scan_id,
                         "user_id": current_user.id,
                         "message": user_msg.message,
                         "is_ai": False,
@@ -91,7 +99,7 @@ async def chat_about_scan(
                     },
                     {
                         "message_id": ai_msg.id,
-                        "scan_id": scan.id,
+                        "scan_id": valid_scan_id,
                         "user_id": current_user.id,
                         "message": ai_msg.message,
                         "is_ai": True,
@@ -103,21 +111,16 @@ async def chat_about_scan(
 
     return ai_msg
 
+@router.get("/chat", response_model=List[ChatMessageResponse])
 @router.get("/chat/{scan_id}", response_model=List[ChatMessageResponse])
 def get_chat_history(
-    scan_id: int,
+    scan_id: Optional[int] = None,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    scan = db.query(Scan).filter(Scan.id == scan_id).first()
-    if not scan:
-        raise HTTPException(status_code=404, detail="Scan session not found")
-        
-    if scan.project.owner_id != current_user.id and current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Not authorized to access this scan")
-        
-    messages = db.query(ChatMessage).filter(ChatMessage.scan_id == scan_id).order_by(ChatMessage.created_at.asc()).all()
-    return messages
+    if scan_id and scan_id > 0:
+        return db.query(ChatMessage).filter(ChatMessage.scan_id == scan_id).order_by(ChatMessage.created_at.asc()).all()
+    return db.query(ChatMessage).filter(ChatMessage.user_id == current_user.id, ChatMessage.scan_id == None).order_by(ChatMessage.created_at.asc()).all()
 
 @router.post("/enrich/{vulnerability_id}", response_model=VulnerabilityDetail)
 async def enrich_vulnerability(

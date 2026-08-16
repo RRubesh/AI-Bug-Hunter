@@ -103,17 +103,19 @@ class ChatMessageCreate(ChatMessageBase):
     scan_id: int
 
 class ChatMessageResponse(ChatMessageBase):
-    id: int
-    scan_id: int
-    user_id: int
-    is_ai: bool
-    created_at: datetime
+    id: Optional[int] = None
+    scan_id: Optional[int] = None
+    user_id: Optional[int] = None
+    is_ai: bool = False
+    created_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
 
 class ChatQuery(BaseModel):
     vulnerability_id: Optional[int] = None
     message: str
+    provider: Optional[str] = None
+    model: Optional[str] = None
 
 # --- Stats & Settings ---
 class SeverityStats(BaseModel):

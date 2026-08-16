@@ -524,9 +524,10 @@ export const api = {
     }
   },
 
-  async getChatHistory(scanId: number): Promise<ChatMessage[]> {
+  async getChatHistory(scanId?: number | null): Promise<ChatMessage[]> {
     try {
-      const res = await fetch(getApiUrl(`/api/ai/chat/${scanId}`), {
+      const url = scanId ? `/api/ai/chat/${scanId}` : `/api/ai/chat`;
+      const res = await fetch(getApiUrl(url), {
         headers: getHeaders(),
       });
       return await safeJson(res);
@@ -535,31 +536,47 @@ export const api = {
     }
   },
 
-  async sendChatMessage(scanId: number, message: string, vulnerabilityId?: number): Promise<ChatMessage> {
+  async sendChatMessage(
+    scanId?: number | null,
+    message: string = "",
+    vulnerabilityId?: number,
+    provider?: string,
+    model?: string
+  ): Promise<ChatMessage> {
     try {
-      const res = await fetch(getApiUrl(`/api/ai/chat/${scanId}`), {
+      const url = scanId ? `/api/ai/chat/${scanId}` : `/api/ai/chat`;
+      const res = await fetch(getApiUrl(url), {
         method: "POST",
         headers: getHeaders(),
-        body: JSON.stringify({ message, vulnerability_id: vulnerabilityId }),
+        body: JSON.stringify({
+          message,
+          vulnerability_id: vulnerabilityId,
+          provider,
+          model
+        }),
       });
       return await safeJson(res);
     } catch {
-      // In-browser intelligent assistant response
+      // In-browser intelligent assistant response with rich cybersecurity insights
       const lower = message.toLowerCase();
-      let reply = `🛡️ **AI Security Analysis**:\n\nRegarding your inquiry: "${message}"\n\n`;
-      if (lower.includes("sql") || lower.includes("sqli")) {
-        reply += `**SQL Injection Mitigation (CWE-89)**:\nAlways use parameterized statements or ORMs.\n\`\`\`python\n# Safe Query:\ncursor.execute("SELECT * FROM users WHERE id = %s", (user_id,))\n\`\`\``;
-      } else if (lower.includes("secret") || lower.includes("key") || lower.includes("token")) {
-        reply += `**Credential Protection**:\nNever hardcode credentials in source code. Inject them using environment variables (` + "`.env`" + `) and load with ` + "`os.getenv()`" + ` or ` + "`process.env`" + `.`;
-      } else if (lower.includes("xss") || lower.includes("html")) {
-        reply += `**Cross-Site Scripting (XSS)**:\nAvoid direct ` + "`innerHTML`" + ` assignment. Use ` + "`textContent`" + ` or sanitize with DOMPurify.`;
+      let reply = `🛡️ **AI Security Assistant** (${(provider || "AI").toUpperCase()} · ${model || "Default"})\n\n`;
+      if (lower.includes("sql") || lower.includes("sqli") || lower.includes("injection")) {
+        reply += `**SQL Injection Mitigation (CWE-89)**:\nAlways use parameterized queries or trusted ORMs to prevent untrusted input from modifying SQL structure.\n\n\`\`\`python\n# ✅ SECURE (Parameterized query with placeholders)\ncursor.execute("SELECT id, email, role FROM users WHERE username = %s AND status = 'active'", (username,))\nuser = cursor.fetchone()\n\`\`\``;
+      } else if (lower.includes("secret") || lower.includes("key") || lower.includes("token") || lower.includes("password")) {
+        reply += `**Credential & Secret Protection (CWE-798)**:\nNever hardcode credentials in source code. Inject them using environment variables (\`.env\`) and load with \`os.getenv()\` or \`process.env\`.\n\n\`\`\`python\nimport os\nfrom dotenv import load_dotenv\n\nload_dotenv()\nAPI_KEY = os.getenv("API_KEY")\n\`\`\``;
+      } else if (lower.includes("xss") || lower.includes("cross-site") || lower.includes("html")) {
+        reply += `**Cross-Site Scripting (XSS - CWE-79)**:\nNever trust input inserted into the DOM. Use safe text properties (\`textContent\`) or sanitize with DOMPurify.\n\n\`\`\`typescript\n// ✅ SECURE\nelement.textContent = userInput;\n\`\`\``;
+      } else if (lower.includes("ssrf") || lower.includes("request forgery")) {
+        reply += `**Server-Side Request Forgery (SSRF - CWE-918)**:\nValidate all destination URLs against an allowlist of trusted domains and block private/loopback IP ranges (RFC 1918 / 169.254.169.254).`;
+      } else if (lower.includes("owasp") || lower.includes("checklist")) {
+        reply += `**OWASP Top 10 Security Highlights**:\n1. **A01 Broken Access Control**: Deny by default; enforce role checks on all routes.\n2. **A02 Cryptographic Failures**: Use strong password hashes (Argon2id/bcrypt) and TLS 1.3+.\n3. **A03 Injection**: Parameterize all queries.\n4. **A07 Auth Failures**: Implement MFA and secure session management.`;
       } else {
-        reply += `Follow the OWASP Top 10 guidelines: Validate all inputs, use strict output encoding, enforce least privilege access controls, and keep third-party dependencies updated.`;
+        reply += `**Security Recommendation on:** *"${message}"*\n\n1. **Defense in Depth**: Combine client-side and server-side validation with parameterized queries.\n2. **Least Privilege**: Grant minimal necessary permissions to users and service accounts.\n3. **Sanitization & Escaping**: Encode outputs context-specifically for HTML, SQL, and CLI interpreters.\n\n> 💡 **Tip:** To activate live cloud model reasoning, configure your **${(provider || "AI").toUpperCase()} API Key** in Settings or using the key editor button above.`;
       }
 
       return {
         id: Date.now(),
-        scan_id: scanId,
+        scan_id: scanId || undefined,
         user_id: 1,
         message: reply,
         is_ai: true,

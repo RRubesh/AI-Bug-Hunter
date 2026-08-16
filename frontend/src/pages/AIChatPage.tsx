@@ -58,6 +58,9 @@ export const AIChatPage: React.FC<{ initialScanId?: number | null }> = ({ initia
   const [keySaveSuccess, setKeySaveSuccess] = useState("");
   const [keySaveError, setKeySaveError] = useState("");
 
+  // Mobile sidebar toggle
+  const [showMobileSidebar, setShowMobileSidebar] = useState(false);
+
   // Chat states
   const [messages, setMessages] = useState<LocalMessage[]>([makeWelcome()]);
   const [inputMessage, setInputMessage] = useState("");
@@ -332,11 +335,28 @@ export const AIChatPage: React.FC<{ initialScanId?: number | null }> = ({ initia
         }
       />
 
+      {/* Mobile Toggle for Scan Context & Findings */}
+      <div className="lg:hidden flex items-center justify-between p-3 bg-slate-900/90 border border-slate-800 rounded-xl">
+        <div className="flex items-center gap-2">
+          <Shield className="w-4 h-4 text-cyan-400" />
+          <span className="text-xs font-bold text-slate-200">
+            {vulnerabilities.length > 0 ? `${vulnerabilities.length} Findings Active` : "General Security Chat"}
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowMobileSidebar(!showMobileSidebar)}
+          className="px-3 py-1.5 text-xs font-mono font-bold text-cyan-400 bg-cyan-500/10 border border-cyan-500/30 rounded-lg hover:bg-cyan-500/20 transition-all cursor-pointer"
+        >
+          {showMobileSidebar ? "Hide Context ▲" : "Select Scan / Model ▼"}
+        </button>
+      </div>
+
       {/* Main Layout: sidebar + chat */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6" style={{ minHeight: "72vh" }}>
         
         {/* ── Left Sidebar ── */}
-        <div className="lg:col-span-1 flex flex-col gap-4">
+        <div className={`${showMobileSidebar ? "flex" : "hidden lg:flex"} lg:col-span-1 flex-col gap-4`}>
           
           {/* Scan Context Selector */}
           <GlassCard className="p-4 space-y-3">
@@ -458,9 +478,18 @@ export const AIChatPage: React.FC<{ initialScanId?: number | null }> = ({ initia
               }}
               className="w-full px-2.5 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs font-mono text-cyan-300 focus:outline-none focus:border-cyan-500 cursor-pointer"
             >
-              <optgroup label="OpenRouter Hub" className="bg-slate-950 text-violet-400 font-bold">
+              <optgroup label="🆓 100% Free Tier Models (No Credit Required)" className="bg-slate-950 text-emerald-400 font-bold">
+                <option value="deepseek/deepseek-r1:free">🆓 DeepSeek R1 (Reasoning - 100% Free)</option>
+                <option value="deepseek/deepseek-chat:free">🆓 DeepSeek V3 (Chat - 100% Free)</option>
+                <option value="google/gemini-2.0-flash-exp:free">🆓 Gemini 2.0 Flash (Fast - Free)</option>
+                <option value="google/gemini-2.0-flash-thinking-exp:free">🆓 Gemini 2.0 Thinking (Deep - Free)</option>
+                <option value="meta-llama/llama-3.3-70b-instruct:free">🆓 Meta Llama 3.3 70B (High IQ - Free)</option>
+                <option value="meta-llama/llama-3.1-8b-instruct:free">🆓 Meta Llama 3.1 8B (Super Fast - Free)</option>
+                <option value="qwen/qwen-2.5-coder-32b-instruct:free">🆓 Qwen 2.5 Coder 32B (Code Specialist - Free)</option>
+                <option value="mistralai/mistral-small-24b-instruct-2501:free">🆓 Mistral Small 24B (Free)</option>
+              </optgroup>
+              <optgroup label="OpenRouter Flagship Hub" className="bg-slate-950 text-violet-400 font-bold">
                 <option value="deepseek/deepseek-chat">DeepSeek V3 (Fast & Accurate)</option>
-                <option value="deepseek/deepseek-r1:free">DeepSeek R1 (Free Tier)</option>
                 <option value="deepseek/deepseek-r1">DeepSeek R1 (Full Reasoning)</option>
                 <option value="google/gemini-2.0-flash-001">Gemini 2.0 Flash</option>
                 <option value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet</option>

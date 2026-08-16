@@ -719,21 +719,41 @@ export const UploadProject: React.FC<UploadProjectProps> = ({ onUploadSuccess, o
                 onChange={(e) => handleModelChange(e.target.value)}
                 className="w-full px-4 py-3 glass-input rounded-xl text-xs font-mono focus:outline-none cursor-pointer border border-slate-700/80 bg-slate-900/90 text-slate-200"
               >
-                <optgroup label="OpenRouter.ai (Recommended Cloud Hub)" className="bg-slate-950 text-violet-400 font-bold">
-                  <option value="deepseek/deepseek-chat" className="bg-slate-900 text-slate-200 font-mono py-1">
-                    deepseek/deepseek-chat (DeepSeek V3 671B - High Accuracy & Fast)
+                <optgroup label="🆓 100% Free Tier Models (No Credit Required)" className="bg-slate-950 text-emerald-400 font-bold">
+                  <option value="deepseek/deepseek-r1:free" className="bg-slate-900 text-emerald-300 font-mono py-1">
+                    🆓 deepseek/deepseek-r1:free (DeepSeek R1 SOTA Reasoning - Free)
                   </option>
-                  <option value="deepseek/deepseek-r1:free" className="bg-slate-900 text-slate-200 font-mono py-1">
-                    deepseek/deepseek-r1:free (DeepSeek R1 Reasoning - Free Tier)
+                  <option value="deepseek/deepseek-chat:free" className="bg-slate-900 text-emerald-300 font-mono py-1">
+                    🆓 deepseek/deepseek-chat:free (DeepSeek V3 Chat - Free)
+                  </option>
+                  <option value="google/gemini-2.0-flash-exp:free" className="bg-slate-900 text-emerald-300 font-mono py-1">
+                    🆓 google/gemini-2.0-flash-exp:free (Gemini 2.0 Flash - Free)
+                  </option>
+                  <option value="google/gemini-2.0-flash-thinking-exp:free" className="bg-slate-900 text-emerald-300 font-mono py-1">
+                    🆓 google/gemini-2.0-flash-thinking-exp:free (Gemini 2.0 Thinking - Free)
+                  </option>
+                  <option value="meta-llama/llama-3.3-70b-instruct:free" className="bg-slate-900 text-emerald-300 font-mono py-1">
+                    🆓 meta-llama/llama-3.3-70b-instruct:free (Meta Llama 3.3 70B - Free)
+                  </option>
+                  <option value="meta-llama/llama-3.1-8b-instruct:free" className="bg-slate-900 text-emerald-300 font-mono py-1">
+                    🆓 meta-llama/llama-3.1-8b-instruct:free (Meta Llama 3.1 8B Ultra Fast - Free)
+                  </option>
+                  <option value="qwen/qwen-2.5-coder-32b-instruct:free" className="bg-slate-900 text-emerald-300 font-mono py-1">
+                    🆓 qwen/qwen-2.5-coder-32b-instruct:free (Qwen 2.5 Coder 32B - Free)
+                  </option>
+                  <option value="mistralai/mistral-small-24b-instruct-2501:free" className="bg-slate-900 text-emerald-300 font-mono py-1">
+                    🆓 mistralai/mistral-small-24b-instruct-2501:free (Mistral Small 24B - Free)
+                  </option>
+                </optgroup>
+                <optgroup label="OpenRouter.ai Flagship Hub" className="bg-slate-950 text-violet-400 font-bold">
+                  <option value="deepseek/deepseek-chat" className="bg-slate-900 text-slate-200 font-mono py-1">
+                    deepseek/deepseek-chat (DeepSeek V3 671B - Fast & Accurate)
                   </option>
                   <option value="deepseek/deepseek-r1" className="bg-slate-900 text-slate-200 font-mono py-1">
                     deepseek/deepseek-r1 (DeepSeek R1 Full Reasoning)
                   </option>
                   <option value="google/gemini-2.0-flash-001" className="bg-slate-900 text-slate-200 font-mono py-1">
                     google/gemini-2.0-flash-001 (Google Gemini 2.0 Flash)
-                  </option>
-                  <option value="google/gemini-2.0-flash-exp:free" className="bg-slate-900 text-slate-200 font-mono py-1">
-                    google/gemini-2.0-flash-exp:free (Gemini 2.0 Flash Free)
                   </option>
                   <option value="anthropic/claude-3.5-sonnet" className="bg-slate-900 text-slate-200 font-mono py-1">
                     anthropic/claude-3.5-sonnet (Claude 3.5 Sonnet)

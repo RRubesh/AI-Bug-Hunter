@@ -10,13 +10,227 @@ export interface StoredProjectData {
 
 const STORAGE_KEY = "ai_bug_hunter_local_storage_v1";
 
+export function getDefaultSeedProjects(): Record<number, StoredProjectData> {
+  const p1_id = 82;
+  const s1_id = 82;
+  const p1: Project = {
+    id: p1_id,
+    name: "local services finder",
+    description: "Multi-tenant web portal & service booking platform",
+    upload_type: "zip",
+    file_path: "Local Services Finder (for Tamil Nadu)/frontend/public/assets/js/script.js",
+    language_detected: "JavaScript",
+    owner_id: 1,
+    owner_username: "developer",
+    created_at: "2026-08-16T15:16:20.000Z",
+    updated_at: "2026-08-16T15:16:20.000Z",
+  };
+  const s1: Scan = {
+    id: s1_id,
+    project_id: p1_id,
+    status: "completed",
+    progress: 100,
+    trigger_type: "manual",
+    total_vulnerabilities: 2,
+    critical_count: 0,
+    high_count: 2,
+    medium_count: 0,
+    low_count: 0,
+    created_at: "2026-08-16T15:16:20.000Z",
+    finished_at: "2026-08-16T15:16:45.000Z",
+    project: p1,
+  };
+  p1.latest_scan = s1;
+  p1.scans = [s1];
+
+  const vulns1: Vulnerability[] = [
+    {
+      id: 101,
+      scan_id: s1_id,
+      file_path: "Local Services Finder (for Tamil Nadu)/frontend/public/assets/js/script.js",
+      line_number: 228,
+      code_snippet: "listContainer.innerHTML = '';",
+      severity: "HIGH",
+      category: "Cross-Site Scripting (XSS)",
+      message: "Direct assignment to innerHTML or use of document.write can lead to DOM-based XSS if user input is uncontrolled.",
+      tool_name: "Semgrep SAST",
+      status: "open",
+      remediation: "Use document.createElement / textContent, or utilize libraries that escape inputs automatically.",
+      ai_explanation: "Cross-Site Scripting (XSS) occurs when an attacker injects malicious scripts into a web page that are then executed by the victim's browser.",
+      ai_fix: "// Assume listContainer is an element on the page\nconst safeUserInput = sanitize(userInput);\nlistContainer.innerHTML = `<p>${safeUserInput}</p>`;",
+      created_at: "2026-08-16T15:16:20.000Z",
+    },
+    {
+      id: 102,
+      scan_id: s1_id,
+      file_path: "Local Services Finder (for Tamil Nadu)/frontend/public/assets/js/script.js",
+      line_number: 247,
+      code_snippet: "li.innerHTML = `<div>${userInput}</div>`;",
+      severity: "HIGH",
+      category: "Cross-Site Scripting (XSS)",
+      message: "Direct assignment to innerHTML can lead to DOM-based XSS if user input is uncontrolled.",
+      tool_name: "Semgrep SAST",
+      status: "open",
+      remediation: "Use document.createElement / textContent, or utilize libraries that escape inputs automatically.",
+      ai_explanation: "Cross-Site Scripting (XSS) occurs when attacker scripts are dynamically inserted into HTML containers.",
+      ai_fix: "const sanitized = userInput.replace(/</g, '&lt;').replace(/>/g, '&gt;');\nli.innerHTML = `<p>${sanitized}</p>`;",
+      created_at: "2026-08-16T15:16:20.000Z",
+    }
+  ];
+
+  const p2_id = 76;
+  const s2_id = 76;
+  const p2: Project = {
+    id: p2_id,
+    name: "python-backend-api",
+    description: "Core REST API microservice and database engine",
+    upload_type: "git",
+    file_path: "backend/database/queries.py",
+    language_detected: "Python",
+    owner_id: 1,
+    owner_username: "developer",
+    created_at: "2026-08-16T14:40:10.000Z",
+    updated_at: "2026-08-16T14:40:10.000Z",
+  };
+  const s2: Scan = {
+    id: s2_id,
+    project_id: p2_id,
+    status: "completed",
+    progress: 100,
+    trigger_type: "manual",
+    total_vulnerabilities: 3,
+    critical_count: 1,
+    high_count: 1,
+    medium_count: 1,
+    low_count: 0,
+    created_at: "2026-08-16T14:40:10.000Z",
+    finished_at: "2026-08-16T14:40:35.000Z",
+    project: p2,
+  };
+  p2.latest_scan = s2;
+  p2.scans = [s2];
+
+  const vulns2: Vulnerability[] = [
+    {
+      id: 201,
+      scan_id: s2_id,
+      file_path: "backend/database/queries.py",
+      line_number: 42,
+      code_snippet: 'cursor.execute(f"SELECT * FROM users WHERE email = \'{user_email}\'")',
+      severity: "CRITICAL",
+      category: "SQL Injection",
+      message: "Dynamic SQL query formed using unescaped string formatting (CWE-89). Enables SQL Injection.",
+      tool_name: "Bandit AST",
+      status: "open",
+      remediation: "Use parameterized queries or ORM query builders (e.g. SQLAlchemy, PreparedStatements).",
+      ai_explanation: "Dynamic string interpolation in SQL statements allows attackers to extract entire databases.",
+      ai_fix: 'cursor.execute("SELECT * FROM users WHERE email = %s", (user_email,))',
+      created_at: "2026-08-16T14:40:10.000Z",
+    },
+    {
+      id: 202,
+      scan_id: s2_id,
+      file_path: "backend/config/cloud.py",
+      line_number: 15,
+      code_snippet: 'AWS_ACCESS_KEY = "AKIA1234567890EXAMPLE"',
+      severity: "HIGH",
+      category: "Hardcoded Secret",
+      message: "Exposed AWS Access Key ID found in source code.",
+      tool_name: "Gitleaks",
+      status: "open",
+      remediation: "Store cloud credentials in environment variables or an AWS Secrets Manager vault.",
+      ai_explanation: "Hardcoded cloud secrets in version control can lead to resource hijacking and data compromise.",
+      ai_fix: 'import os\nAWS_ACCESS_KEY = os.getenv("AWS_ACCESS_KEY_ID")',
+      created_at: "2026-08-16T14:40:10.000Z",
+    },
+    {
+      id: 203,
+      scan_id: s2_id,
+      file_path: "backend/auth/tokens.py",
+      line_number: 68,
+      code_snippet: "hash_token = hashlib.md5(token_salt.encode()).hexdigest()",
+      severity: "MEDIUM",
+      category: "Weak Cryptography",
+      message: "Cryptographically broken algorithm detected (MD5). Susceptible to collision attacks.",
+      tool_name: "Bandit AST",
+      status: "open",
+      remediation: "Upgrade to SHA-256 / SHA-3 or Argon2id for password hashing.",
+      ai_explanation: "MD5 has known collision vulnerabilities. Upgrade to SHA-256 for cryptographic safety.",
+      ai_fix: "hash_token = hashlib.sha256(token_salt.encode()).hexdigest()",
+      created_at: "2026-08-16T14:40:10.000Z",
+    }
+  ];
+
+  const p3_id = 38;
+  const s3_id = 38;
+  const p3: Project = {
+    id: p3_id,
+    name: "auth-gateway-service",
+    description: "OAuth2 / JWT Token Authentication Microservice",
+    upload_type: "file",
+    file_path: "src/auth/jwt.ts",
+    language_detected: "TypeScript",
+    owner_id: 1,
+    owner_username: "developer",
+    created_at: "2026-08-16T13:10:00.000Z",
+    updated_at: "2026-08-16T13:10:00.000Z",
+  };
+  const s3: Scan = {
+    id: s3_id,
+    project_id: p3_id,
+    status: "completed",
+    progress: 100,
+    trigger_type: "manual",
+    total_vulnerabilities: 0,
+    critical_count: 0,
+    high_count: 0,
+    medium_count: 0,
+    low_count: 0,
+    created_at: "2026-08-16T13:10:00.000Z",
+    finished_at: "2026-08-16T13:10:20.000Z",
+    project: p3,
+  };
+  p3.latest_scan = s3;
+  p3.scans = [s3];
+
+  return {
+    [p1_id]: {
+      project: p1,
+      scans: [s1],
+      files: { [p1.file_path!]: "listContainer.innerHTML = '';\nli.innerHTML = `<div>${userInput}</div>`;" },
+      vulnerabilities: { [s1_id]: vulns1 },
+    },
+    [p2_id]: {
+      project: p2,
+      scans: [s2],
+      files: { [p2.file_path!]: 'cursor.execute(f"SELECT * FROM users WHERE email = \'{user_email}\'")\nAWS_ACCESS_KEY = "AKIA1234567890EXAMPLE"' },
+      vulnerabilities: { [s2_id]: vulns2 },
+    },
+    [p3_id]: {
+      project: p3,
+      scans: [s3],
+      files: { [p3.file_path!]: "// Secure TypeScript token gateway\nexport const verifyJwt = () => true;" },
+      vulnerabilities: { [s3_id]: [] },
+    }
+  };
+}
+
 export function loadStoredData(): Record<number, StoredProjectData> {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : {};
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && Object.keys(parsed).length > 0) {
+        return parsed;
+      }
+    }
+    // Initialize default seed scans
+    const seeds = getDefaultSeedProjects();
+    saveStoredData(seeds);
+    return seeds;
   } catch (err) {
     console.error("Failed to parse local storage data:", err);
-    return {};
+    return getDefaultSeedProjects();
   }
 }
 

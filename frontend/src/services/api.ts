@@ -699,9 +699,6 @@ export const api = {
         (v.category || "").toLowerCase().includes("package") || 
         (v.tool_name || "").toLowerCase().includes("dependency")
       );
-
-      const sastVulns = vulns.filter(v => !secretsList.includes(v) && !depsList.includes(v));
-
       const projectName = scan.project?.name || "Target Codebase";
       const uploadType = (scan.project?.upload_type || "ZIP").toUpperCase();
       const languageDetected = scan.project?.language_detected || "JavaScript / Multi-Language";

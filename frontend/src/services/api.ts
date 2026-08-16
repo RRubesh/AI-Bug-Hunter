@@ -1128,18 +1128,20 @@ export const api = {
 </body>
 </html>`;
 
-      // 1. Trigger automatic file download of the standalone report document
-      const blob = new Blob([htmlContent], { type: "text/html" });
-      const blobUrl = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = blobUrl;
-      a.download = `AI_Bug_Hunter_Report_${scanId}.${format === "pdf" ? "html" : format}`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(blobUrl);
+      // 1. For HTML format, download the standalone executive report document
+      if (format === "html") {
+        const blob = new Blob([htmlContent], { type: "text/html" });
+        const blobUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = blobUrl;
+        a.download = `AI_Bug_Hunter_Report_${scanId}.html`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(blobUrl);
+      }
 
-      // 2. If PDF requested, also trigger print via invisible iframe (never blocked by popup blockers)
+      // 2. For PDF format, trigger native print-to-PDF with clean A4 executive styling
       if (format === "pdf") {
         const iframe = document.createElement("iframe");
         iframe.style.position = "fixed";
@@ -1160,7 +1162,7 @@ export const api = {
             setTimeout(() => {
               try { document.body.removeChild(iframe); } catch {}
             }, 2000);
-          }, 400);
+          }, 350);
         }
       }
     }

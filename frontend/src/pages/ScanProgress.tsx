@@ -2,8 +2,8 @@ import React, { useEffect, useState, useRef, useCallback } from "react";
 import { api } from "../services/api";
 import type { Scan } from "../services/api";
 import { 
-  Terminal, ShieldAlert, RefreshCw, ArrowLeft, Download, FileText, Globe, Code,
-  CheckCircle2, AlertTriangle, Play, Sparkles, Activity, ShieldCheck
+  Terminal, ShieldAlert, RefreshCw, ArrowLeft, FileText, Globe, Code,
+  Activity, ShieldCheck
 } from "lucide-react";
 
 interface ScanProgressProps {

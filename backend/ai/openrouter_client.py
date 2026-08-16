@@ -103,8 +103,12 @@ class OpenRouterClient:
     ) -> str:
         msg_lower = (user_message + " " + code_context).lower()
         key_help = ""
+        clean_prov = (provider or "openrouter").lower()
+        if clean_prov == "ollama":
+            clean_prov = "openrouter"
+        prov_label = clean_prov.upper()
+
         if error_notice:
-            prov_label = provider.upper() if provider else "AI"
             key_help = (
                 f"> [!NOTE]\n"
                 f"> **Live AI Reasoning Notice:** To connect directly to live cloud intelligence ({prov_label} · `{model}`), configure your API key using the **'🔑 Enter Key'** button above or in **Settings**.\n\n"
@@ -292,6 +296,8 @@ class OpenRouterClient:
     ) -> str:
         # Determine active provider and model
         target_provider = (provider or settings.AI_PROVIDER or "openrouter").lower()
+        if target_provider == "ollama":
+            target_provider = "openrouter"
         target_model = model or settings.DEFAULT_LLM_MODEL or "deepseek/deepseek-chat"
 
         # Auto-infer provider from model name if not explicitly set

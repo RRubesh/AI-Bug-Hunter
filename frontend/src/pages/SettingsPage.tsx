@@ -115,9 +115,9 @@ export const SettingsPage: React.FC = () => {
     setSaveError("");
     try {
       const data = await api.getSettings();
-      setOpenrouterUrl(data.openrouter_api_url || data.ollama_url || "https://openrouter.ai/api/v1");
+      setOpenrouterUrl(data.openrouter_api_url || "https://openrouter.ai/api/v1");
       setDefaultModel(data.default_model || "deepseek/deepseek-chat");
-      setAiProvider(data.ai_provider || "openrouter");
+      setAiProvider((data.ai_provider && data.ai_provider.toLowerCase() !== "ollama") ? data.ai_provider : "openrouter");
 
       // Update configured keys
       setConfiguredKeys({

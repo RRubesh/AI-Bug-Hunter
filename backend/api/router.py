@@ -741,6 +741,9 @@ async def get_settings():
     except Exception:
         models = []
 
+    if settings.AI_PROVIDER.lower() == "ollama":
+        settings.AI_PROVIDER = "openrouter"
+
     return AppSettings(
         openrouter_api_url=settings.OPENROUTER_API_BASE_URL,
         ollama_url=settings.OPENROUTER_API_BASE_URL,
@@ -778,7 +781,8 @@ def save_settings_to_env(
     if default_model is not None:
         settings.DEFAULT_LLM_MODEL = default_model
     if ai_provider is not None:
-        settings.AI_PROVIDER = ai_provider
+        clean_prov = "openrouter" if ai_provider.lower() == "ollama" else ai_provider
+        settings.AI_PROVIDER = clean_prov
     
     if openrouter_api_key is not None:
         settings.OPENROUTER_API_KEY = openrouter_api_key

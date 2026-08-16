@@ -558,8 +558,9 @@ export const api = {
       return await safeJson(res);
     } catch {
       // In-browser intelligent assistant response with rich cybersecurity insights
+      const cleanProv = (!provider || provider.toLowerCase() === "ollama") ? "openrouter" : provider.toLowerCase();
       const lower = message.toLowerCase();
-      let reply = `🛡️ **AI Security Assistant** (${(provider || "AI").toUpperCase()} · ${model || "Default"})\n\n`;
+      let reply = `🛡️ **AI Security Assistant** (${cleanProv.toUpperCase()} · ${model || "deepseek/deepseek-chat"})\n\n`;
       if (lower.includes("sql") || lower.includes("sqli") || lower.includes("injection")) {
         reply += `**SQL Injection Mitigation (CWE-89)**:\nAlways use parameterized queries or trusted ORMs to prevent untrusted input from modifying SQL structure.\n\n\`\`\`python\n# ✅ SECURE (Parameterized query with placeholders)\ncursor.execute("SELECT id, email, role FROM users WHERE username = %s AND status = 'active'", (username,))\nuser = cursor.fetchone()\n\`\`\``;
       } else if (lower.includes("secret") || lower.includes("key") || lower.includes("token") || lower.includes("password")) {
@@ -571,7 +572,7 @@ export const api = {
       } else if (lower.includes("owasp") || lower.includes("checklist")) {
         reply += `**OWASP Top 10 Security Highlights**:\n1. **A01 Broken Access Control**: Deny by default; enforce role checks on all routes.\n2. **A02 Cryptographic Failures**: Use strong password hashes (Argon2id/bcrypt) and TLS 1.3+.\n3. **A03 Injection**: Parameterize all queries.\n4. **A07 Auth Failures**: Implement MFA and secure session management.`;
       } else {
-        reply += `**Security Recommendation on:** *"${message}"*\n\n1. **Defense in Depth**: Combine client-side and server-side validation with parameterized queries.\n2. **Least Privilege**: Grant minimal necessary permissions to users and service accounts.\n3. **Sanitization & Escaping**: Encode outputs context-specifically for HTML, SQL, and CLI interpreters.\n\n> 💡 **Tip:** To activate live cloud model reasoning, configure your **${(provider || "AI").toUpperCase()} API Key** in Settings or using the key editor button above.`;
+        reply += `**Security Recommendation on:** *"${message}"*\n\n1. **Defense in Depth**: Combine client-side and server-side validation with parameterized queries.\n2. **Least Privilege**: Grant minimal necessary permissions to users and service accounts.\n3. **Sanitization & Escaping**: Encode outputs context-specifically for HTML, SQL, and CLI interpreters.\n\n> 💡 **Tip:** To activate live cloud model reasoning, configure your **${cleanProv.toUpperCase()} API Key** in Settings or using the key editor button above.`;
       }
 
       return {
@@ -1270,6 +1271,7 @@ export const api = {
       const data: AppSettings = await safeJson(res);
       return {
         ...data,
+        ai_provider: (!data.ai_provider || data.ai_provider === "ollama") ? "openrouter" : data.ai_provider,
         openrouter_api_key_configured: data.openrouter_api_key_configured || !!localKeys.openrouter,
         openai_api_key_configured: data.openai_api_key_configured || !!localKeys.openai,
         gemini_api_key_configured: data.gemini_api_key_configured || !!localKeys.gemini,
@@ -1318,6 +1320,8 @@ export const api = {
     claude_api_key?: string;
     grok_api_key?: string;
   }): Promise<AppSettings> {
+    if (settings.ai_provider === "ollama") settings.ai_provider = "openrouter";
+
     let localKeys: Record<string, boolean> = {};
     try {
       const stored = localStorage.getItem("ai_bug_hunter_keys");
@@ -1344,6 +1348,7 @@ export const api = {
       const data = await safeJson(res);
       return {
         ...data,
+        ai_provider: (!data.ai_provider || data.ai_provider === "ollama") ? "openrouter" : data.ai_provider,
         openrouter_api_key_configured: data.openrouter_api_key_configured || !!localKeys.openrouter,
         openai_api_key_configured: data.openai_api_key_configured || !!localKeys.openai,
         gemini_api_key_configured: data.gemini_api_key_configured || !!localKeys.gemini,

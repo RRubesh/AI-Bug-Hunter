@@ -136,7 +136,7 @@ export const UploadProject: React.FC<UploadProjectProps> = ({ onUploadSuccess, o
     api.getSettings()
       .then((settings) => {
         if (!active || !settings) return;
-        if (settings.ai_provider) setSelectedProvider(settings.ai_provider);
+        if (settings.ai_provider && settings.ai_provider.toLowerCase() !== "ollama") setSelectedProvider(settings.ai_provider);
         if (settings.default_model) setAiModel(settings.default_model);
         setConfiguredKeys({
           openrouter: !!settings.openrouter_api_key_configured,

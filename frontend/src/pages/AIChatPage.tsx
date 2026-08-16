@@ -153,7 +153,8 @@ export const AIChatPage: React.FC<{ initialScanId?: number | null }> = ({ initia
         if (!active) return;
         setProjects(projData);
         if (settingsData) {
-          setSelectedProvider(settingsData.ai_provider || "openrouter");
+          const prov = (settingsData.ai_provider && settingsData.ai_provider.toLowerCase() !== "ollama") ? settingsData.ai_provider : "openrouter";
+          setSelectedProvider(prov);
           setSelectedModel(settingsData.default_model || "deepseek/deepseek-chat");
           setConfiguredKeys({
             openrouter: !!settingsData.openrouter_api_key_configured,

@@ -38,7 +38,7 @@ class Settings(BaseSettings):
     GROK_API_KEY: str = os.getenv("GROK_API_KEY", "")
 
     # Legacy compatibility
-    OLLAMA_API_URL: str = os.getenv("OLLAMA_API_URL", "https://openrouter.ai/api/v1")
+    OLLAMA_API_URL: str = os.getenv("OPENROUTER_API_BASE_URL", "https://openrouter.ai/api/v1")
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -50,6 +50,8 @@ class Settings(BaseSettings):
 is_vercel = bool(os.getenv("VERCEL") or os.getenv("VERCEL_ENV") or os.getenv("NOW_BUILDER"))
 
 settings = Settings()
+if settings.AI_PROVIDER.lower() == "ollama":
+    settings.AI_PROVIDER = "openrouter"
 
 if is_vercel:
     temp_dir = Path("/tmp")

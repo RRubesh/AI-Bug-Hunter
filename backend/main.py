@@ -105,7 +105,6 @@ async def healthcheck():
         "mongodb": mongo_status,
         "ai_engine": ai_status,
         "openrouter": ai_status,
-        "ollama": "connected" if ai_status == "connected" else "ready",
         "scanners": {
             "gitleaks": gitleaks_avail,
             "bandit": bandit_avail,

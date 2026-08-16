@@ -796,43 +796,58 @@ def save_settings_to_env(
     openrouter_client.base_url = settings.OPENROUTER_API_BASE_URL
     
     # Save back to .env preserving other existing configs
-    env_path = settings.BASE_DIR / ".env"
-    env_vars = {}
-    if env_path.exists():
+    env_paths = [
+        settings.BASE_DIR.parent / ".env",
+        settings.BASE_DIR / ".env",
+        Path(".env"),
+    ]
+    
+    seen_paths = set()
+    for env_path in env_paths:
         try:
-            with open(env_path, "r", encoding="utf-8") as f:
-                for line in f:
-                    line = line.strip()
-                    if line and not line.startswith("#") and "=" in line:
-                        parts = line.split("=", 1)
-                        env_vars[parts[0].strip()] = parts[1].strip()
+            resolved = env_path.resolve()
+            if resolved in seen_paths:
+                continue
+            seen_paths.add(resolved)
         except Exception:
             pass
-            
-    # Update settings
-    env_vars["OPENROUTER_API_BASE_URL"] = settings.OPENROUTER_API_BASE_URL
-    env_vars["DEFAULT_LLM_MODEL"] = settings.DEFAULT_LLM_MODEL
-    env_vars["AI_PROVIDER"] = settings.AI_PROVIDER
-    
-    if settings.OPENROUTER_API_KEY:
-        env_vars["OPENROUTER_API_KEY"] = settings.OPENROUTER_API_KEY
-    if settings.OPENAI_API_KEY:
-        env_vars["OPENAI_API_KEY"] = settings.OPENAI_API_KEY
-    if settings.GEMINI_API_KEY:
-        env_vars["GEMINI_API_KEY"] = settings.GEMINI_API_KEY
-    if settings.GROQ_API_KEY:
-        env_vars["GROQ_API_KEY"] = settings.GROQ_API_KEY
-    if settings.CLAUDE_API_KEY:
-        env_vars["CLAUDE_API_KEY"] = settings.CLAUDE_API_KEY
-    if settings.GROK_API_KEY:
-        env_vars["GROK_API_KEY"] = settings.GROK_API_KEY
+
+        env_vars = {}
+        if env_path.exists():
+            try:
+                with open(env_path, "r", encoding="utf-8") as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith("#") and "=" in line:
+                            parts = line.split("=", 1)
+                            env_vars[parts[0].strip()] = parts[1].strip()
+            except Exception:
+                pass
+                
+        # Update settings
+        env_vars["OPENROUTER_API_BASE_URL"] = settings.OPENROUTER_API_BASE_URL
+        env_vars["DEFAULT_LLM_MODEL"] = settings.DEFAULT_LLM_MODEL
+        env_vars["AI_PROVIDER"] = settings.AI_PROVIDER
         
-    try:
-        with open(env_path, "w", encoding="utf-8") as f:
-            for k, v in env_vars.items():
-                f.write(f"{k}={v}\n")
-    except Exception:
-        pass
+        if settings.OPENROUTER_API_KEY:
+            env_vars["OPENROUTER_API_KEY"] = settings.OPENROUTER_API_KEY
+        if settings.OPENAI_API_KEY:
+            env_vars["OPENAI_API_KEY"] = settings.OPENAI_API_KEY
+        if settings.GEMINI_API_KEY:
+            env_vars["GEMINI_API_KEY"] = settings.GEMINI_API_KEY
+        if settings.GROQ_API_KEY:
+            env_vars["GROQ_API_KEY"] = settings.GROQ_API_KEY
+        if settings.CLAUDE_API_KEY:
+            env_vars["CLAUDE_API_KEY"] = settings.CLAUDE_API_KEY
+        if settings.GROK_API_KEY:
+            env_vars["GROK_API_KEY"] = settings.GROK_API_KEY
+            
+        try:
+            with open(env_path, "w", encoding="utf-8") as f:
+                for k, v in env_vars.items():
+                    f.write(f"{k}={v}\n")
+        except Exception:
+            pass
 
 @router.post("/settings", response_model=AppSettings)
 async def update_settings(

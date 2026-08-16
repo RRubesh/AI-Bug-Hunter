@@ -6,7 +6,8 @@ import { GlassCard } from "../components/ui/GlassCard";
 import { Button } from "../components/ui/Button";
 import { 
   Send, Bot, User, Sparkles, Shield, AlertTriangle, 
-  Code, Copy, Check, RefreshCw, Terminal, Lock, ChevronDown
+  Code, Copy, Check, RefreshCw, Terminal, Lock, ChevronDown,
+  Key, Eye, EyeOff, X, CheckCircle2, AlertCircle
 } from "lucide-react";
 
 interface LocalMessage {
@@ -41,6 +42,21 @@ export const AIChatPage: React.FC<{ initialScanId?: number | null }> = ({ initia
   // Provider state
   const [selectedProvider, setSelectedProvider] = useState<string>("openrouter");
   const [selectedModel, setSelectedModel] = useState<string>("deepseek/deepseek-chat");
+  const [configuredKeys, setConfiguredKeys] = useState<Record<string, boolean>>({
+    openrouter: false,
+    openai: false,
+    gemini: false,
+    claude: false,
+    grok: false,
+  });
+
+  // API Key Quick Modal in Chat
+  const [apiKeyModalOpen, setApiKeyModalOpen] = useState(false);
+  const [apiKeyInput, setApiKeyInput] = useState("");
+  const [showKey, setShowKey] = useState(false);
+  const [keySaving, setKeySaving] = useState(false);
+  const [keySaveSuccess, setKeySaveSuccess] = useState("");
+  const [keySaveError, setKeySaveError] = useState("");
 
   // Chat states
   const [messages, setMessages] = useState<LocalMessage[]>([makeWelcome()]);
@@ -139,6 +155,13 @@ export const AIChatPage: React.FC<{ initialScanId?: number | null }> = ({ initia
         if (settingsData) {
           setSelectedProvider(settingsData.ai_provider || "openrouter");
           setSelectedModel(settingsData.default_model || "deepseek/deepseek-chat");
+          setConfiguredKeys({
+            openrouter: !!settingsData.openrouter_api_key_configured,
+            openai: !!settingsData.openai_api_key_configured,
+            gemini: !!settingsData.gemini_api_key_configured,
+            claude: !!settingsData.claude_api_key_configured,
+            grok: !!settingsData.grok_api_key_configured,
+          });
         }
         // Auto-select first project only if no initialScanId given
         if (projData.length > 0 && !initialScanId) {
@@ -257,6 +280,37 @@ export const AIChatPage: React.FC<{ initialScanId?: number | null }> = ({ initia
 
   const handleClearChat = () => {
     setMessages([makeWelcome()]);
+  };
+
+  const handleSaveApiKey = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!apiKeyInput.trim()) return;
+
+    setKeySaving(true);
+    setKeySaveSuccess("");
+    setKeySaveError("");
+
+    try {
+      const keyProp = `${selectedProvider}_api_key`;
+      await api.updateSettings({
+        [keyProp]: apiKeyInput.trim(),
+        ai_provider: selectedProvider,
+        default_model: selectedModel,
+      });
+
+      setConfiguredKeys((prev) => ({ ...prev, [selectedProvider]: true }));
+      setKeySaveSuccess(`${selectedProvider.toUpperCase()} API key saved and activated!`);
+      setTimeout(() => {
+        setApiKeyModalOpen(false);
+        setApiKeyInput("");
+        setKeySaveSuccess("");
+      }, 1000);
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      setKeySaveError(`Failed to save key: ` + errMsg);
+    } finally {
+      setKeySaving(false);
+    }
   };
 
   return (
@@ -437,6 +491,35 @@ export const AIChatPage: React.FC<{ initialScanId?: number | null }> = ({ initia
                 <option value="grok-2-mini">Grok 2 Mini</option>
               </optgroup>
             </select>
+
+            <div className="flex items-center justify-between pt-1">
+              {configuredKeys[selectedProvider] ? (
+                <span className="text-[10px] font-mono text-emerald-400 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                  Key Configured
+                </span>
+              ) : (
+                <span className="text-[10px] font-mono text-amber-400 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                  Key Missing
+                </span>
+              )}
+
+              <button
+                type="button"
+                onClick={() => {
+                  setApiKeyInput("");
+                  setShowKey(false);
+                  setKeySaveSuccess("");
+                  setKeySaveError("");
+                  setApiKeyModalOpen(true);
+                }}
+                className="px-2 py-0.5 text-[10px] font-mono font-bold text-amber-300 hover:text-amber-200 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 rounded flex items-center gap-1 cursor-pointer transition-all"
+              >
+                <Key className="w-3 h-3" />
+                <span>{configuredKeys[selectedProvider] ? "Update Key" : "Enter Key"}</span>
+              </button>
+            </div>
           </GlassCard>
 
           {/* Clear Chat */}
@@ -677,6 +760,105 @@ export const AIChatPage: React.FC<{ initialScanId?: number | null }> = ({ initia
           </div>
         </div>
       </div>
+
+      {/* API Key Quick Modal for Chat Assistant */}
+      {apiKeyModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in">
+          <div className="w-full max-w-md bg-[#0b1324] border border-amber-500/30 rounded-3xl p-6 shadow-2xl shadow-amber-500/10 space-y-5 relative">
+            <button
+              type="button"
+              onClick={() => setApiKeyModalOpen(false)}
+              className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-white rounded-lg bg-slate-900/80 border border-slate-800 hover:border-slate-700 transition-all cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0">
+                <Key className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-100 font-sans capitalize">
+                  Configure {selectedProvider} API Key
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Save secret API key to enable live reasoning with {selectedProvider.toUpperCase()}
+                </p>
+              </div>
+            </div>
+
+            {keySaveSuccess && (
+              <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs rounded-xl flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>{keySaveSuccess}</span>
+              </div>
+            )}
+
+            {keySaveError && (
+              <div className="p-3 bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs rounded-xl flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                <span>{keySaveError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSaveApiKey} className="space-y-4">
+              <div>
+                <label className="block text-xs font-mono font-bold uppercase tracking-wider text-slate-400 mb-2">
+                  Secret API Key
+                </label>
+                <div className="relative">
+                  <input
+                    type={showKey ? "text" : "password"}
+                    required
+                    placeholder={
+                      selectedProvider === "openrouter"
+                        ? "sk-or-v1-..."
+                        : selectedProvider === "openai"
+                        ? "sk-proj-..."
+                        : selectedProvider === "gemini"
+                        ? "AIzaSy..."
+                        : selectedProvider === "claude"
+                        ? "sk-ant-api03-..."
+                        : "xai-..."
+                    }
+                    value={apiKeyInput}
+                    onChange={(e) => setApiKeyInput(e.target.value)}
+                    className="w-full px-4 py-3 pr-10 bg-slate-950 border border-slate-800 rounded-xl text-xs font-mono text-amber-300 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowKey(!showKey)}
+                    className="absolute right-3 top-3.5 text-slate-400 hover:text-slate-200 cursor-pointer"
+                  >
+                    {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                <p className="text-[11px] text-slate-500 mt-1.5 font-sans">
+                  Stored securely for your profile. You only need to enter this key once.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setApiKeyModalOpen(false)}
+                  className="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={keySaving}
+                  className="px-5 py-2 text-xs font-bold text-black bg-amber-400 hover:bg-amber-300 rounded-xl shadow-lg shadow-amber-500/20 transition-all cursor-pointer disabled:opacity-50"
+                >
+                  {keySaving ? "Saving..." : "Save & Activate Key"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

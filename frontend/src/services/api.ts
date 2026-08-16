@@ -1240,11 +1240,26 @@ export const api = {
   },
 
   async getSettings(): Promise<AppSettings> {
+    let localKeys: Record<string, boolean> = {};
+    try {
+      const stored = localStorage.getItem("ai_bug_hunter_keys");
+      if (stored) localKeys = JSON.parse(stored);
+    } catch {}
+
     try {
       const res = await fetch(getApiUrl("/api/settings"), {
         headers: getHeaders(),
       });
-      return await safeJson(res);
+      const data: AppSettings = await safeJson(res);
+      return {
+        ...data,
+        openrouter_api_key_configured: data.openrouter_api_key_configured || !!localKeys.openrouter,
+        openai_api_key_configured: data.openai_api_key_configured || !!localKeys.openai,
+        gemini_api_key_configured: data.gemini_api_key_configured || !!localKeys.gemini,
+        claude_api_key_configured: data.claude_api_key_configured || !!localKeys.claude,
+        grok_api_key_configured: data.grok_api_key_configured || !!localKeys.grok,
+        groq_api_key_configured: data.groq_api_key_configured || !!localKeys.groq,
+      };
     } catch {
       return {
         openrouter_api_url: "https://openrouter.ai/api/v1",
@@ -1253,19 +1268,23 @@ export const api = {
         available_models: [
           "deepseek/deepseek-chat",
           "deepseek/deepseek-r1:free",
+          "deepseek/deepseek-r1",
+          "google/gemini-2.0-flash-001",
           "google/gemini-2.0-flash-exp:free",
-          "meta-llama/llama-3.3-70b-instruct",
           "anthropic/claude-3.5-sonnet",
+          "openai/o3-mini",
+          "openai/gpt-4o-mini",
+          "meta-llama/llama-3.3-70b-instruct",
           "qwen/qwen-2.5-coder-32b-instruct",
-          "openai/gpt-4o-mini"
+          "mistralai/mistral-large-2411"
         ],
         ai_provider: "openrouter",
-        openrouter_api_key_configured: false,
-        openai_api_key_configured: false,
-        gemini_api_key_configured: false,
-        groq_api_key_configured: false,
-        claude_api_key_configured: false,
-        grok_api_key_configured: false,
+        openrouter_api_key_configured: !!localKeys.openrouter,
+        openai_api_key_configured: !!localKeys.openai,
+        gemini_api_key_configured: !!localKeys.gemini,
+        groq_api_key_configured: !!localKeys.groq,
+        claude_api_key_configured: !!localKeys.claude,
+        grok_api_key_configured: !!localKeys.grok,
       };
     }
   },
@@ -1282,13 +1301,39 @@ export const api = {
     claude_api_key?: string;
     grok_api_key?: string;
   }): Promise<AppSettings> {
+    let localKeys: Record<string, boolean> = {};
+    try {
+      const stored = localStorage.getItem("ai_bug_hunter_keys");
+      if (stored) localKeys = JSON.parse(stored);
+    } catch {}
+
+    if (settings.openrouter_api_key && settings.openrouter_api_key.trim()) localKeys.openrouter = true;
+    if (settings.openai_api_key && settings.openai_api_key.trim()) localKeys.openai = true;
+    if (settings.gemini_api_key && settings.gemini_api_key.trim()) localKeys.gemini = true;
+    if (settings.claude_api_key && settings.claude_api_key.trim()) localKeys.claude = true;
+    if (settings.grok_api_key && settings.grok_api_key.trim()) localKeys.grok = true;
+    if (settings.groq_api_key && settings.groq_api_key.trim()) localKeys.groq = true;
+
+    try {
+      localStorage.setItem("ai_bug_hunter_keys", JSON.stringify(localKeys));
+    } catch {}
+
     try {
       const res = await fetch(getApiUrl("/api/settings"), {
         method: "POST",
         headers: getHeaders(),
         body: JSON.stringify(settings),
       });
-      return await safeJson(res);
+      const data = await safeJson(res);
+      return {
+        ...data,
+        openrouter_api_key_configured: data.openrouter_api_key_configured || !!localKeys.openrouter,
+        openai_api_key_configured: data.openai_api_key_configured || !!localKeys.openai,
+        gemini_api_key_configured: data.gemini_api_key_configured || !!localKeys.gemini,
+        claude_api_key_configured: data.claude_api_key_configured || !!localKeys.claude,
+        grok_api_key_configured: data.grok_api_key_configured || !!localKeys.grok,
+        groq_api_key_configured: data.groq_api_key_configured || !!localKeys.groq,
+      };
     } catch {
       return {
         openrouter_api_url: settings.openrouter_api_url || settings.ollama_url || "https://openrouter.ai/api/v1",
@@ -1297,19 +1342,23 @@ export const api = {
         available_models: [
           "deepseek/deepseek-chat",
           "deepseek/deepseek-r1:free",
+          "deepseek/deepseek-r1",
+          "google/gemini-2.0-flash-001",
           "google/gemini-2.0-flash-exp:free",
-          "meta-llama/llama-3.3-70b-instruct",
           "anthropic/claude-3.5-sonnet",
+          "openai/o3-mini",
+          "openai/gpt-4o-mini",
+          "meta-llama/llama-3.3-70b-instruct",
           "qwen/qwen-2.5-coder-32b-instruct",
-          "openai/gpt-4o-mini"
+          "mistralai/mistral-large-2411"
         ],
         ai_provider: settings.ai_provider || "openrouter",
-        openrouter_api_key_configured: !!settings.openrouter_api_key,
-        openai_api_key_configured: !!settings.openai_api_key,
-        gemini_api_key_configured: !!settings.gemini_api_key,
-        groq_api_key_configured: !!settings.groq_api_key,
-        claude_api_key_configured: !!settings.claude_api_key,
-        grok_api_key_configured: !!settings.grok_api_key,
+        openrouter_api_key_configured: !!settings.openrouter_api_key || !!localKeys.openrouter,
+        openai_api_key_configured: !!settings.openai_api_key || !!localKeys.openai,
+        gemini_api_key_configured: !!settings.gemini_api_key || !!localKeys.gemini,
+        groq_api_key_configured: !!settings.groq_api_key || !!localKeys.groq,
+        claude_api_key_configured: !!settings.claude_api_key || !!localKeys.claude,
+        grok_api_key_configured: !!settings.grok_api_key || !!localKeys.grok,
       };
     }
   },

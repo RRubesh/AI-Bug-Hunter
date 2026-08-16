@@ -275,7 +275,7 @@ export const SettingsPage: React.FC = () => {
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8 animate-fade-in relative">
+    <div className="max-w-7xl mx-auto space-y-8 animate-fade-in relative px-2 sm:px-4">
       
       {/* Header */}
       <PageHeader
@@ -320,17 +320,17 @@ export const SettingsPage: React.FC = () => {
               AI Provider Intelligence Matrix
             </h3>
             <p className="text-xs text-slate-400 mt-1 font-sans">
-              Select an AI provider, configure API keys, and set models
+              Select an AI provider, configure API keys, and set active models
             </p>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
           {[
             {
               id: "openrouter",
-              name: "OpenRouter.ai",
-              badge: "RECOMMENDED",
+              name: "OpenRouter",
+              badge: "PRO CLOUD",
               badgeType: "recommended",
               status: configuredKeys.openrouter ? "Configured" : "Key Required",
               statusType: configuredKeys.openrouter ? "success" : "warning",
@@ -338,7 +338,7 @@ export const SettingsPage: React.FC = () => {
               iconColor: "text-violet-400",
               iconBg: "bg-violet-500/10 border-violet-500/30",
               Icon: (props: { className?: string }) => (
-                <svg className={props.className || "w-5 h-5"} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg className={props.className || "w-4 h-4"} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
                 </svg>
               ),
@@ -354,7 +354,7 @@ export const SettingsPage: React.FC = () => {
               iconColor: "text-sky-400",
               iconBg: "bg-sky-500/10 border-sky-500/30",
               Icon: (props: { className?: string }) => (
-                <svg className={props.className || "w-5 h-5"} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg className={props.className || "w-4 h-4"} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M17.5 19C19.9853 19 22 16.9853 22 14.5C22 12.1564 20.2062 10.2312 17.9157 10.0243C17.4334 6.57945 14.4604 3.875 10.875 3.875C7.45781 3.875 4.60098 6.30401 3.96875 9.53125C1.75806 9.87109 0 11.752 0 14.0312C0 16.5165 2.01472 18.5312 4.5 18.5312H17.5Z" />
                 </svg>
               ),
@@ -370,7 +370,7 @@ export const SettingsPage: React.FC = () => {
               iconColor: "text-cyan-400",
               iconBg: "bg-cyan-500/10 border-cyan-500/30",
               Icon: (props: { className?: string }) => (
-                <svg className={props.className || "w-5 h-5"} viewBox="0 0 24 24" fill="currentColor">
+                <svg className={props.className || "w-4 h-4"} viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12 0C12 6.627 6.627 12 0 12C6.627 12 12 17.373 12 24C12 17.373 17.373 12 24 12C17.373 12 12 6.627 12 0Z" />
                 </svg>
               ),
@@ -380,13 +380,13 @@ export const SettingsPage: React.FC = () => {
               name: "Claude",
               badge: "CLOUD",
               badgeType: "cloud",
-              status: configuredKeys.claude ? "Configured" : "Offline",
-              statusType: configuredKeys.claude ? "success" : "offline",
+              status: configuredKeys.claude ? "Configured" : "Key Required",
+              statusType: configuredKeys.claude ? "success" : "warning",
               defaultModel: "claude-3-haiku",
               iconColor: "text-orange-500",
               iconBg: "bg-orange-500/10 border-orange-500/30",
               Icon: (props: { className?: string }) => (
-                <svg className={props.className || "w-5 h-5"} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                <svg className={props.className || "w-4 h-4"} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                   <line x1="12" y1="3" x2="12" y2="21" />
                   <line x1="3" y1="12" x2="21" y2="12" />
                   <line x1="5.64" y1="5.64" x2="18.36" y2="18.36" />
@@ -405,7 +405,7 @@ export const SettingsPage: React.FC = () => {
               iconColor: "text-slate-100",
               iconBg: "bg-slate-700/20 border-slate-600/30",
               Icon: (props: { className?: string }) => (
-                <svg className={props.className || "w-5 h-5"} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg className={props.className || "w-4 h-4"} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="12" cy="12" r="7" />
                   <circle cx="12" cy="12" r="2.5" fill="currentColor" />
                   <line x1="12" y1="2" x2="12" y2="5" />
@@ -437,21 +437,21 @@ export const SettingsPage: React.FC = () => {
                 }`}
               >
                 {/* Header: Icon + Name on Left, Tag on Right */}
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2.5">
+                <div className="flex items-center justify-between gap-2 mb-3">
+                  <div className="flex items-center gap-2 min-w-0">
                     <div className={`p-1.5 rounded-lg border ${provider.iconBg} ${provider.iconColor} shrink-0`}>
-                      <ProviderIcon className="w-5 h-5" />
+                      <ProviderIcon className="w-4 h-4" />
                     </div>
-                    <span className="text-sm font-bold text-white tracking-wide font-sans">
+                    <span className="text-sm font-bold text-white tracking-wide font-sans truncate" title={provider.name}>
                       {provider.name}
                     </span>
                   </div>
 
                   <span
-                    className={`px-2 py-0.5 rounded text-[9px] font-mono font-extrabold uppercase tracking-wider ${
-                      provider.badgeType === "local"
-                        ? "bg-rose-500/10 text-rose-400 border border-rose-500/30"
-                        : "bg-slate-900/80 text-slate-400 border border-slate-800"
+                    className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-bold uppercase tracking-wider shrink-0 whitespace-nowrap ${
+                      provider.badgeType === "recommended"
+                        ? "bg-violet-500/20 text-violet-300 border border-violet-500/40"
+                        : "bg-slate-900/90 text-slate-400 border border-slate-800"
                     }`}
                   >
                     {provider.badge}
@@ -461,19 +461,18 @@ export const SettingsPage: React.FC = () => {
                 {/* Status Pill & API Key quick trigger */}
                 <div className="mb-3 space-y-1.5">
                   {provider.statusType === "offline" ? (
-                    <div className="w-full py-1 px-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs font-semibold text-center tracking-wide">
+                    <div className="w-full py-1.5 px-2 rounded-xl bg-rose-500/10 border border-rose-500/25 text-rose-400 text-xs font-semibold text-center tracking-wide flex items-center justify-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-rose-400 shrink-0" />
                       Offline
                     </div>
                   ) : provider.statusType === "warning" ? (
-                    <div className="w-full py-1 px-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-semibold text-center tracking-wide">
+                    <div className="w-full py-1.5 px-2 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-400 text-xs font-semibold text-center tracking-wide flex items-center justify-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
                       Key Required
                     </div>
-                  ) : provider.status === "Connected" ? (
-                    <div className="w-full py-1 px-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold text-center tracking-wide shadow-[0_0_12px_rgba(16,185,129,0.15)]">
-                      Connected
-                    </div>
                   ) : (
-                    <div className="w-full py-1 px-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold text-center tracking-wide">
+                    <div className="w-full py-1.5 px-2 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-xs font-semibold text-center tracking-wide flex items-center justify-center gap-1.5 shadow-[0_0_12px_rgba(16,185,129,0.1)]">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
                       Configured
                     </div>
                   )}
@@ -484,7 +483,7 @@ export const SettingsPage: React.FC = () => {
                       e.stopPropagation();
                       handleOpenApiKeyModal(provider.id);
                     }}
-                    className="w-full py-1 px-2 text-[10px] font-mono text-amber-400 hover:text-amber-300 bg-amber-500/5 hover:bg-amber-500/10 border border-amber-500/20 rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                    className="w-full py-1.5 px-2 text-[10px] font-mono text-amber-400 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/25 rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer"
                   >
                     <Key className="w-3 h-3" />
                     <span>
@@ -514,6 +513,7 @@ export const SettingsPage: React.FC = () => {
 
                   <div className="relative" onClick={(e) => e.stopPropagation()}>
                     <select
+                      title={currentSelectedModel}
                       value={currentSelectedModel}
                       onChange={(e) => {
                         if (e.target.value === "__create_new__") {
@@ -524,9 +524,9 @@ export const SettingsPage: React.FC = () => {
                           setDefaultModel(e.target.value);
                         }
                       }}
-                      className={`w-full px-2.5 py-1.5 pr-7 rounded-lg bg-slate-900 border text-xs font-mono font-bold transition-all appearance-none cursor-pointer focus:outline-none ${
+                      className={`w-full pl-2.5 pr-7 py-2 rounded-xl bg-slate-900 border text-xs font-mono font-medium transition-all appearance-none cursor-pointer focus:outline-none truncate ${
                         isSelected
-                          ? "border-cyan-500/60 text-cyan-300 shadow-[0_0_10px_rgba(6,182,212,0.15)]"
+                          ? "border-cyan-500/70 text-cyan-300 shadow-[0_0_12px_rgba(6,182,212,0.15)] bg-slate-900/90"
                           : "border-slate-800 text-slate-300 hover:border-slate-700"
                       }`}
                     >
@@ -539,7 +539,7 @@ export const SettingsPage: React.FC = () => {
                         + Create Custom Model...
                       </option>
                     </select>
-                    <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2 top-2.5 pointer-events-none" />
+                    <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
                   </div>
                 </div>
 
@@ -550,13 +550,13 @@ export const SettingsPage: React.FC = () => {
                     e.stopPropagation();
                     handleSelectProvider();
                   }}
-                  className={`mt-3 w-full py-2 px-3 rounded-xl text-xs font-bold transition-all duration-200 flex items-center justify-center gap-1.5 cursor-pointer ${
+                  className={`mt-3 w-full h-9 py-2 px-3 rounded-xl text-xs font-bold transition-all duration-200 flex items-center justify-center gap-1.5 cursor-pointer ${
                     isSelected
-                      ? "bg-blue-600 hover:bg-blue-500 text-white shadow-md shadow-blue-600/30 border border-blue-400/40"
+                      ? "bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white shadow-md shadow-blue-500/25 border border-cyan-400/40"
                       : "bg-slate-900/80 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 hover:border-slate-700"
                   }`}
                 >
-                  <span>{isSelected ? "Configured" : "Configure"}</span>
+                  <span>{isSelected ? "✓ Active Provider" : "Select Provider"}</span>
                 </button>
               </div>
             );

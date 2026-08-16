@@ -5,7 +5,7 @@ from backend.models import User, Scan, Vulnerability, ChatMessage
 from backend.schemas import ChatQuery, ChatMessageResponse, VulnerabilityDetail
 from backend.auth.jwt import get_current_user
 from backend.ai.openrouter_client import openrouter_client
-from typing import List
+from typing import List, Optional
 
 router = APIRouter(prefix="/ai", tags=["AI Security Assistant"])
 

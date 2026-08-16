@@ -103,7 +103,7 @@ export const UploadProject: React.FC<UploadProjectProps> = ({ onUploadSuccess, o
   });
 
   // AI Model Selection
-  const [aiModel, setAiModel] = useState("qwen2.5-coder:1.5b");
+  const [aiModel, setAiModel] = useState("deepseek/deepseek-chat");
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -606,25 +606,34 @@ export const UploadProject: React.FC<UploadProjectProps> = ({ onUploadSuccess, o
             {/* AI Model Selection */}
             <div className="space-y-3">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-400 font-mono block">
-                Local AI Model (Ollama)
+                AI Security Model (OpenRouter.ai)
               </span>
               <select
                 value={aiModel}
                 onChange={(e) => setAiModel(e.target.value)}
                 className="w-full px-4 py-3 glass-input rounded-xl text-xs font-mono focus:outline-none cursor-pointer"
               >
-                <option value="qwen2.5-coder:1.5b" className="bg-slate-900">
-                  qwen2.5-coder:1.5b (Fast & Precise - Local)
+                <option value="deepseek/deepseek-chat" className="bg-slate-900">
+                  deepseek/deepseek-chat (DeepSeek V3 - High Accuracy & Fast)
                 </option>
-                <option value="qwen3-coder:30b" className="bg-slate-900">
-                  qwen3-coder:30b (Advanced Deep Code Reasoning)
+                <option value="deepseek/deepseek-r1:free" className="bg-slate-900">
+                  deepseek/deepseek-r1:free (DeepSeek R1 - Advanced Reasoning)
                 </option>
-                <option value="deepseek-coder:6.7b" className="bg-slate-900">
-                  deepseek-coder:6.7b (Cybersecurity Expert)
+                <option value="google/gemini-2.0-flash-exp:free" className="bg-slate-900">
+                  google/gemini-2.0-flash-exp:free (Gemini 2.0 Flash)
+                </option>
+                <option value="anthropic/claude-3.5-sonnet" className="bg-slate-900">
+                  anthropic/claude-3.5-sonnet (Claude 3.5 Sonnet)
+                </option>
+                <option value="meta-llama/llama-3.3-70b-instruct" className="bg-slate-900">
+                  meta-llama/llama-3.3-70b-instruct (Meta Llama 3.3 70B)
+                </option>
+                <option value="qwen/qwen-2.5-coder-32b-instruct" className="bg-slate-900">
+                  qwen/qwen-2.5-coder-32b-instruct (Qwen 2.5 Coder 32B)
                 </option>
               </select>
-              <span className="text-[11px] text-emerald-400 font-mono flex items-center gap-1">
-                <Sparkles className="w-3.5 h-3.5" /> Ollama Local LLM engine active for zero data exposure.
+              <span className="text-[11px] text-violet-400 font-mono flex items-center gap-1">
+                <Sparkles className="w-3.5 h-3.5" /> OpenRouter.ai cloud intelligence engine active.
               </span>
             </div>
           </div>

@@ -54,10 +54,10 @@ except Exception as e:
     sys.exit(1)
 
 try:
-    from backend.ai.ollama_client import ollama_client
-    print("    OK: ollama_client imported")
+    from backend.ai.openrouter_client import openrouter_client
+    print("    OK: openrouter_client imported")
 except Exception as e:
-    print(f"    FAIL: ollama_client import: {e}")
+    print(f"    FAIL: openrouter_client import: {e}")
     traceback.print_exc()
     sys.exit(1)
 

@@ -39,8 +39,8 @@ export const AIChatPage: React.FC<{ initialScanId?: number | null }> = ({ initia
   const [vulnerabilities, setVulnerabilities] = useState<Vulnerability[]>([]);
 
   // Provider state
-  const [selectedProvider, setSelectedProvider] = useState<string>("ollama");
-  const [selectedModel, setSelectedModel] = useState<string>("qwen3-coder:30b");
+  const [selectedProvider, setSelectedProvider] = useState<string>("openrouter");
+  const [selectedModel, setSelectedModel] = useState<string>("deepseek/deepseek-chat");
 
   // Chat states
   const [messages, setMessages] = useState<LocalMessage[]>([makeWelcome()]);
@@ -137,8 +137,8 @@ export const AIChatPage: React.FC<{ initialScanId?: number | null }> = ({ initia
         if (!active) return;
         setProjects(projData);
         if (settingsData) {
-          setSelectedProvider(settingsData.ai_provider || "ollama");
-          setSelectedModel(settingsData.default_model || "qwen3-coder:30b");
+          setSelectedProvider(settingsData.ai_provider || "openrouter");
+          setSelectedModel(settingsData.default_model || "deepseek/deepseek-chat");
         }
         // Auto-select first project only if no initialScanId given
         if (projData.length > 0 && !initialScanId) {

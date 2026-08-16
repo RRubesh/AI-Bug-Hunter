@@ -1,6 +1,6 @@
 # AI Bug Hunter
 
-AI Bug Hunter is an AI-powered static application security testing (SAST) platform. It allows developers to analyze code repositories (ZIP files, Git repository clones, or copy-pasted files) for critical security vulnerabilities, credentials leaks, and outdated dependencies. It enriches results with a local Large Language Model (Ollama) to deliver custom defensive explanations and secure code rewrites without leaking source files to third-party APIs.
+AI Bug Hunter is an AI-powered static application security testing (SAST) platform. It allows developers to analyze code repositories (ZIP files, Git repository clones, or copy-pasted files) for critical security vulnerabilities, credentials leaks, and outdated dependencies. It enriches results with OpenRouter.ai Large Language Models (such as DeepSeek, Llama 3.3, Claude 3.5, and Gemini 2.0) to deliver custom defensive explanations and secure code rewrites.
 
 ---
 
@@ -12,7 +12,7 @@ AI Bug Hunter is an AI-powered static application security testing (SAST) platfo
    - **Python SAST (Bandit)**: Builds an Abstract Syntax Tree (AST) to track dynamically executed commands (`eval()`, `exec()`), shell subprocess injection points, insecure hashlib algorithms, and SQL formatting concats.
    - **Multi-Language Linting (Semgrep)**: Matches rule patterns for JavaScript/TypeScript (XSS in innerHTML, DOM injections), C/C++ (stack overflows like strcpy), Java (SQL concatenation in statements), and PHP.
    - **Outdated Dependencies Audit**: Scans package manifests (`package.json`, `requirements.txt`) against offline libraries signature database records (Lodash Prototype Pollution, Axios SSRF).
-3. **Defensive AI Remediation (Ollama)**: Employs local coding models (like Qwen Coder or DeepSeek-Coder) using system constraints to explain vulnerabilities and suggest secure rewrites without explaining exploit methods.
+3. **Defensive AI Remediation (OpenRouter.ai)**: Employs state-of-the-art coding models (like DeepSeek Chat, Claude 3.5 Sonnet, or Llama 3.3) using system constraints to explain vulnerabilities and suggest secure rewrites without explaining exploit methods.
 4. **HTML/PDF Reports**: Exports executive summaries, severity distribution donut charts, and detail lists with code snippet references.
 5. **Interactive Chat Sidebar**: Allows developers to ask the AI assistant questions about specific findings and code snippets.
 
@@ -33,8 +33,8 @@ AI Bug Hunter is an AI-powered static application security testing (SAST) platfo
                             |                   |
                             v                   v
             +---------------+---------------+   +----------+-----------+
-            |      Scanning Orchestrator    |   |      Local LLM       |
-            | (Gitleaks, Bandit, Semgrep,   |   |   (Ollama API client)|
+            |      Scanning Orchestrator    |   |     OpenRouter.ai    |
+            | (Gitleaks, Bandit, Semgrep,   |   |   (Cloud LLM Engine) |
             |  Dependency Analyzers)        |   +----------------------+
             +---------------+---------------+
                             |
@@ -62,16 +62,17 @@ The application uses SQLAlchemy to model the database schema:
 ## Local Development Installation
 
 ### Prerequisites
-- **Python 3.10** installed.
+- **Python 3.10+** installed.
 - **Node.js v20+** installed.
-- **Ollama** installed locally (running on `http://localhost:11434`).
+- **OpenRouter API Key** (from [openrouter.ai](https://openrouter.ai)).
 
-### Setup Ollama Model
-Run the following in your terminal to pull the recommended lightweight coding model:
+### Setup OpenRouter.ai API Key
+Set your OpenRouter key in `.env`:
 ```bash
-ollama pull qwen2.5-coder:1.5b
+OPENROUTER_API_KEY=sk-or-v1-xxxxxxxx
+AI_PROVIDER=openrouter
+DEFAULT_LLM_MODEL=deepseek/deepseek-chat
 ```
-Ensure Ollama is running (`ollama serve` or via desktop app).
 
 ---
 

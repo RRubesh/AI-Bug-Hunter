@@ -485,7 +485,7 @@ export const ScanResults: React.FC<ScanResultsProps> = ({ scanId, onNavigateToDa
               <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold">COMPLETED</span>
             </div>
             <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center justify-between">
-              <span className="font-bold text-slate-300">Ollama AI Intelligence</span>
+              <span className="font-bold text-slate-300">OpenRouter AI Intelligence</span>
               <span className="px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 text-[10px] font-bold">CONNECTED</span>
             </div>
           </div>
@@ -505,7 +505,7 @@ export const ScanResults: React.FC<ScanResultsProps> = ({ scanId, onNavigateToDa
                 AI Security Intelligence
               </h3>
               <p className="text-xs text-slate-400 font-mono">
-                Automated threat analysis & defensive remediation synthesized by Ollama LLM
+                Automated threat analysis & defensive remediation synthesized by OpenRouter.ai LLM
               </p>
             </div>
           </div>
@@ -949,7 +949,7 @@ export const ScanResults: React.FC<ScanResultsProps> = ({ scanId, onNavigateToDa
                   className="w-full py-3 bg-gradient-to-r from-violet-600/30 via-cyan-600/30 to-blue-600/30 border border-violet-500/40 hover:border-violet-400 text-slate-100 rounded-xl font-bold flex items-center justify-center gap-2 cursor-pointer transition-all hover:scale-[1.01]"
                 >
                   <Sparkles className={`w-4 h-4 text-violet-400 ${enriching ? "animate-spin" : ""}`} />
-                  {enriching ? "Generating AI Secure Implementation..." : "Generate Defensive AI Code Fix (Ollama)"}
+                  {enriching ? "Generating AI Secure Implementation..." : "Generate Defensive AI Code Fix (OpenRouter)"}
                 </button>
               )}
             </div>

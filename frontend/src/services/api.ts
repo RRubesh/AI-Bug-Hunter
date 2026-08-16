@@ -102,10 +102,12 @@ export interface DashboardSummary {
 }
 
 export interface AppSettings {
-  ollama_url: string;
+  openrouter_api_url?: string;
+  ollama_url?: string;
   default_model: string;
   available_models: string[];
   ai_provider: string;
+  openrouter_api_key_configured?: boolean;
   openai_api_key_configured: boolean;
   gemini_api_key_configured: boolean;
   groq_api_key_configured: boolean;
@@ -1113,8 +1115,8 @@ export const api = {
           <td style="color:#10b981;">COMPLETED</td>
         </tr>
         <tr>
-          <td style="text-align:left; font-weight:700;">Ollama AI Intelligence</td>
-          <td style="text-align:left; font-weight:normal; color:#475569;">Local LLM Defensive Remediation Engine</td>
+          <td style="text-align:left; font-weight:700;">OpenRouter AI Intelligence</td>
+          <td style="text-align:left; font-weight:normal; color:#475569;">Cloud LLM Defensive Remediation Engine</td>
           <td style="color:#10b981;">CONNECTED</td>
         </tr>
       </tbody>
@@ -1245,10 +1247,20 @@ export const api = {
       return await safeJson(res);
     } catch {
       return {
-        ollama_url: "http://localhost:11434",
-        default_model: "qwen2.5-coder:1.5b",
-        available_models: ["qwen2.5-coder:1.5b", "qwen3-coder:30b", "deepseek-coder:6.7b"],
-        ai_provider: "ollama",
+        openrouter_api_url: "https://openrouter.ai/api/v1",
+        ollama_url: "https://openrouter.ai/api/v1",
+        default_model: "deepseek/deepseek-chat",
+        available_models: [
+          "deepseek/deepseek-chat",
+          "deepseek/deepseek-r1:free",
+          "google/gemini-2.0-flash-exp:free",
+          "meta-llama/llama-3.3-70b-instruct",
+          "anthropic/claude-3.5-sonnet",
+          "qwen/qwen-2.5-coder-32b-instruct",
+          "openai/gpt-4o-mini"
+        ],
+        ai_provider: "openrouter",
+        openrouter_api_key_configured: false,
         openai_api_key_configured: false,
         gemini_api_key_configured: false,
         groq_api_key_configured: false,
@@ -1259,6 +1271,8 @@ export const api = {
   },
 
   async updateSettings(settings: {
+    openrouter_api_url?: string;
+    openrouter_api_key?: string;
     ollama_url?: string;
     default_model?: string;
     ai_provider?: string;
@@ -1277,10 +1291,20 @@ export const api = {
       return await safeJson(res);
     } catch {
       return {
-        ollama_url: settings.ollama_url || "http://localhost:11434",
-        default_model: settings.default_model || "qwen2.5-coder:1.5b",
-        available_models: ["qwen2.5-coder:1.5b", "qwen3-coder:30b", "deepseek-coder:6.7b"],
-        ai_provider: settings.ai_provider || "ollama",
+        openrouter_api_url: settings.openrouter_api_url || settings.ollama_url || "https://openrouter.ai/api/v1",
+        ollama_url: settings.openrouter_api_url || settings.ollama_url || "https://openrouter.ai/api/v1",
+        default_model: settings.default_model || "deepseek/deepseek-chat",
+        available_models: [
+          "deepseek/deepseek-chat",
+          "deepseek/deepseek-r1:free",
+          "google/gemini-2.0-flash-exp:free",
+          "meta-llama/llama-3.3-70b-instruct",
+          "anthropic/claude-3.5-sonnet",
+          "qwen/qwen-2.5-coder-32b-instruct",
+          "openai/gpt-4o-mini"
+        ],
+        ai_provider: settings.ai_provider || "openrouter",
+        openrouter_api_key_configured: !!settings.openrouter_api_key,
         openai_api_key_configured: !!settings.openai_api_key,
         gemini_api_key_configured: !!settings.gemini_api_key,
         groq_api_key_configured: !!settings.groq_api_key,

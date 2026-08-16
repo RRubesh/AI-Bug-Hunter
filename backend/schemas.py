@@ -150,17 +150,21 @@ class SecurityEventResponse(BaseModel):
     created_at: datetime
 
 class AppSettings(BaseModel):
-    ollama_url: str
+    openrouter_api_url: str = "https://openrouter.ai/api/v1"
+    ollama_url: Optional[str] = "https://openrouter.ai/api/v1"
     default_model: str
     available_models: List[str]
     ai_provider: str
-    openai_api_key_configured: bool
-    gemini_api_key_configured: bool
-    groq_api_key_configured: bool
-    claude_api_key_configured: bool
-    grok_api_key_configured: bool
+    openrouter_api_key_configured: bool = False
+    openai_api_key_configured: bool = False
+    gemini_api_key_configured: bool = False
+    groq_api_key_configured: bool = False
+    claude_api_key_configured: bool = False
+    grok_api_key_configured: bool = False
 
 class SettingsUpdate(BaseModel):
+    openrouter_api_url: Optional[str] = None
+    openrouter_api_key: Optional[str] = None
     ollama_url: Optional[str] = None
     default_model: Optional[str] = None
     ai_provider: Optional[str] = None

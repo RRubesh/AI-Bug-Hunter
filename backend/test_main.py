@@ -174,7 +174,7 @@ def test_execute_scan_task_completes_when_mongodb_is_unavailable(db_session, mon
         monkeypatch.setattr(DependencyRunner, "scan", lambda self, path: [])
         monkeypatch.setattr(database_module, "is_mongo_connected", lambda: False)
         monkeypatch.setattr(database_module, "get_mongo_db", lambda: None)
-        monkeypatch.setattr(scanner_engine.ollama_client, "explain_vulnerability_sync", lambda *args, **kwargs: {"explanation": "Test explanation", "fix": "Use safer APIs"})
+        monkeypatch.setattr(scanner_engine.openrouter_client, "explain_vulnerability_sync", lambda *args, **kwargs: {"explanation": "Test explanation", "fix": "Use safer APIs"})
 
         scanner_engine.execute_scan_task(lambda: db_session, scan_id, temp_dir)
 
@@ -276,7 +276,7 @@ def test_settings_endpoints(db_session):
     from backend.api.router import save_settings_to_env
     
     # Save original configurations to restore later
-    original_url = settings.OLLAMA_API_URL
+    original_url = settings.OPENROUTER_API_BASE_URL
     original_model = settings.DEFAULT_LLM_MODEL
     
     # Override get_db
@@ -306,26 +306,26 @@ def test_settings_endpoints(db_session):
         res = client.get("/api/settings")
         assert res.status_code == 200
         data = res.json()
-        assert "ollama_url" in data
+        assert "openrouter_api_url" in data
         assert "default_model" in data
         
         # 2. Update settings (without auth - should fail 401)
-        res = client.post("/api/settings", json={"ollama_url": "http://localhost:9999", "default_model": "test-model"})
+        res = client.post("/api/settings", json={"openrouter_api_url": "https://custom-router.ai/v1", "default_model": "test-model"})
         assert res.status_code == 401
         
         # 3. Update settings (with auth - should succeed)
         res = client.post(
             "/api/settings",
-            json={"ollama_url": "http://localhost:9999", "default_model": "test-model"},
+            json={"openrouter_api_url": "https://custom-router.ai/v1", "default_model": "test-model"},
             headers={"Authorization": f"Bearer {token}"}
         )
         assert res.status_code == 200
         data = res.json()
-        assert data["ollama_url"] == "http://localhost:9999"
+        assert data["openrouter_api_url"] == "https://custom-router.ai/v1"
         assert data["default_model"] == "test-model"
     finally:
         # Restore original settings
-        save_settings_to_env(original_url, original_model)
+        save_settings_to_env(openrouter_api_url=original_url, default_model=original_model)
         # Clean up overrides
         app.dependency_overrides.clear()
 
@@ -407,7 +407,7 @@ def test_ai_endpoint_restrictions(db_session):
     from backend.main import app
     from backend.database import get_db
     from unittest.mock import AsyncMock
-    from backend.ai.ollama_client import ollama_client
+    from backend.ai.openrouter_client import openrouter_client
     from backend.auth.jwt import get_password_hash
 
     # Override get_db
@@ -422,10 +422,10 @@ def test_ai_endpoint_restrictions(db_session):
     client = TestClient(app)
     
     # Mock LLM calls
-    original_chat = ollama_client.chat_about_scan
-    original_enrich = ollama_client.explain_vulnerability
-    ollama_client.chat_about_scan = AsyncMock(return_value="Mocked AI response")
-    ollama_client.explain_vulnerability = AsyncMock(return_value={"explanation": "Mocked explanation", "fix": "Mocked fix"})
+    original_chat = openrouter_client.chat_about_scan
+    original_enrich = openrouter_client.explain_vulnerability
+    openrouter_client.chat_about_scan = AsyncMock(return_value="Mocked AI response")
+    openrouter_client.explain_vulnerability = AsyncMock(return_value={"explanation": "Mocked explanation", "fix": "Mocked fix"})
     
     try:
         # Create users
@@ -513,8 +513,8 @@ def test_ai_endpoint_restrictions(db_session):
         
     finally:
         # Restore mock objects
-        ollama_client.chat_about_scan = original_chat
-        ollama_client.explain_vulnerability = original_enrich
+        openrouter_client.chat_about_scan = original_chat
+        openrouter_client.explain_vulnerability = original_enrich
         # Clean up overrides
         app.dependency_overrides.clear()
 

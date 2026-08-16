@@ -4,7 +4,7 @@ from backend.database import get_db
 from backend.models import User, Scan, Vulnerability, ChatMessage
 from backend.schemas import ChatQuery, ChatMessageResponse, VulnerabilityDetail
 from backend.auth.jwt import get_current_user
-from backend.ai.ollama_client import ollama_client
+from backend.ai.openrouter_client import openrouter_client
 from typing import List
 
 router = APIRouter(prefix="/ai", tags=["AI Security Assistant"])
@@ -62,7 +62,7 @@ async def chat_about_scan(
     chat_history = chat_history[-10:]
 
     # Fetch AI response
-    ai_reply = await ollama_client.chat_about_scan(chat_history, query.message, code_context)
+    ai_reply = await openrouter_client.chat_about_scan(chat_history, query.message, code_context)
 
     # Save AI message
     ai_msg = ChatMessage(
@@ -138,7 +138,7 @@ async def enrich_vulnerability(
         return vuln
         
     # Perform enrichment
-    enrichment = await ollama_client.explain_vulnerability(
+    enrichment = await openrouter_client.explain_vulnerability(
         vuln.category, vuln.message, vuln.code_snippet or ""
     )
     

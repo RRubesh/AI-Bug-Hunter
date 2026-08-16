@@ -42,7 +42,7 @@ export const ScanProgress: React.FC<ScanProgressProps> = ({ scanId, onScanComple
       generatedLogs.push("[DEPENDENCY]: Querying offline CVE vulnerability database for vulnerable libraries...");
     }
     if (progress >= 95) {
-      generatedLogs.push("[AI ASSISTANT]: Communicating with local Ollama service...");
+      generatedLogs.push("[AI ASSISTANT]: Querying OpenRouter.ai intelligence engine...");
       generatedLogs.push("[AI ASSISTANT]: Creating defensive code remediation rewrites for critical findings...");
     }
     if (status === "completed") {
@@ -245,7 +245,7 @@ export const ScanProgress: React.FC<ScanProgressProps> = ({ scanId, onScanComple
           {renderStep("Python Bandit AST Analysis", 50, "BANDIT")}
           {renderStep("Multi-Language Semgrep Rules", 70, "SEMGREP")}
           {renderStep("Dependency Audit & CVE Database", 85, "DEPENDENCY")}
-          {renderStep("Ollama LLM Defensive Remediation", 95, "AI-LLM")}
+          {renderStep("OpenRouter LLM Defensive Remediation", 95, "AI-LLM")}
         </div>
 
         {/* Export shortcuts if completed */}

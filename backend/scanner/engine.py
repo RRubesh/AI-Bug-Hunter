@@ -11,7 +11,7 @@ from backend.scanner.gitleaks_runner import GitleaksRunner
 from backend.scanner.bandit_runner import BanditRunner
 from backend.scanner.semgrep_runner import SemgrepRunner
 from backend.scanner.dependency_runner import DependencyRunner
-from backend.ai.ollama_client import ollama_client
+from backend.ai.openrouter_client import openrouter_client
 
 def detect_language(project_path: Path) -> str:
     ext_counts = {}
@@ -250,7 +250,7 @@ def execute_scan_task(db_session_factory, scan_id: int, project_path_str: str):
 
         for vuln in top_findings:
             try:
-                explanation_data = ollama_client.explain_vulnerability_sync(
+                explanation_data = openrouter_client.explain_vulnerability_sync(
                     vuln.category or "Security Vulnerability",
                     vuln.message or "",
                     vuln.code_snippet or ""

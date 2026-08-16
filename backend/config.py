@@ -24,17 +24,21 @@ class Settings(BaseSettings):
     MONGODB_DB_NAME: str = os.getenv("MONGODB_DB_NAME", "ai_bug_hunter")
     MONGODB_DATABASE: str = os.getenv("MONGODB_DATABASE", "ai_bug_hunter")
     
-    # Local AI (Ollama)
-    OLLAMA_API_URL: str = os.getenv("OLLAMA_API_URL", "http://localhost:11434")
-    DEFAULT_LLM_MODEL: str = os.getenv("DEFAULT_LLM_MODEL", "qwen2.5-coder:1.5b")
+    # AI Provider Configurations
+    OPENROUTER_API_KEY: str = os.getenv("OPENROUTER_API_KEY", "")
+    OPENROUTER_API_BASE_URL: str = os.getenv("OPENROUTER_API_BASE_URL", "https://openrouter.ai/api/v1")
+    DEFAULT_LLM_MODEL: str = os.getenv("DEFAULT_LLM_MODEL", "deepseek/deepseek-chat")
+    AI_PROVIDER: str = os.getenv("AI_PROVIDER", "openrouter")
     
-    # Cloud AI Providers
-    AI_PROVIDER: str = os.getenv("AI_PROVIDER", "ollama")
+    # Direct Provider API Keys (Optional)
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
     GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
     CLAUDE_API_KEY: str = os.getenv("CLAUDE_API_KEY", "")
     GROK_API_KEY: str = os.getenv("GROK_API_KEY", "")
+
+    # Legacy compatibility
+    OLLAMA_API_URL: str = os.getenv("OLLAMA_API_URL", "https://openrouter.ai/api/v1")
 
     model_config = SettingsConfigDict(
         env_file=".env",

@@ -11,7 +11,15 @@ import {
 } from "lucide-react";
 
 const INITIAL_PROVIDER_MODELS: Record<string, string[]> = {
-  ollama: ["qwen3-coder:30b", "qwen2.5-coder:1.5b", "gemma:7b", "codellama:13b"],
+  openrouter: [
+    "deepseek/deepseek-chat",
+    "deepseek/deepseek-r1:free",
+    "google/gemini-2.0-flash-exp:free",
+    "meta-llama/llama-3.3-70b-instruct",
+    "anthropic/claude-3.5-sonnet",
+    "qwen/qwen-2.5-coder-32b-instruct",
+    "openai/gpt-4o-mini",
+  ],
   openai: ["gpt-4o-mini", "gpt-4o", "gpt-4-turbo", "gpt-3.5-turbo"],
   gemini: ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-1.0-pro"],
   groq: ["llama-3.1-8b-instant", "llama-3.1-70b-versatile", "mixtral-8x7b-32768"],
@@ -23,11 +31,12 @@ export const SettingsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   
   // Editable fields
-  const [ollamaUrl, setOllamaUrl] = useState("");
-  const [defaultModel, setDefaultModel] = useState("");
-  const [aiProvider, setAiProvider] = useState("ollama");
+  const [openrouterUrl, setOpenrouterUrl] = useState("https://openrouter.ai/api/v1");
+  const [defaultModel, setDefaultModel] = useState("deepseek/deepseek-chat");
+  const [aiProvider, setAiProvider] = useState("openrouter");
 
   // API Key input states
+  const [openrouterApiKey, setOpenrouterApiKey] = useState("");
   const [openaiApiKey, setOpenaiApiKey] = useState("");
   const [geminiApiKey, setGeminiApiKey] = useState("");
   const [claudeApiKey, setClaudeApiKey] = useState("");
@@ -36,6 +45,7 @@ export const SettingsPage: React.FC = () => {
 
   // Configured flags state from backend
   const [configuredKeys, setConfiguredKeys] = useState<Record<string, boolean>>({
+    openrouter: false,
     openai: false,
     gemini: false,
     claude: false,
@@ -46,21 +56,21 @@ export const SettingsPage: React.FC = () => {
 
   // API Key Quick Modal State
   const [apiKeyModalOpen, setApiKeyModalOpen] = useState(false);
-  const [keyModalProvider, setKeyModalProvider] = useState("openai");
+  const [keyModalProvider, setKeyModalProvider] = useState("openrouter");
   const [keyModalInputValue, setKeyModalInputValue] = useState("");
   const [showModalKey, setShowModalKey] = useState(false);
   
   // Custom Model State & Management
   const [providerModels, setProviderModels] = useState<Record<string, string[]>>(INITIAL_PROVIDER_MODELS);
   const [customModalOpen, setCustomModalOpen] = useState(false);
-  const [targetProviderForCustom, setTargetProviderForCustom] = useState("ollama");
+  const [targetProviderForCustom, setTargetProviderForCustom] = useState("openrouter");
   const [customModelInput, setCustomModelInput] = useState("");
 
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState("");
   const [saveError, setSaveError] = useState("");
-  const [testingOllama, setTestingOllama] = useState(false);
-  const [ollamaStatusMsg, setOllamaStatusMsg] = useState("");
+  const [testingOpenRouter, setTestingOpenRouter] = useState(false);
+  const [openrouterStatusMsg, setOpenrouterStatusMsg] = useState("");
   
   // Custom Backend API URL State
   const [customApiUrl, setCustomApiUrl] = useState(() => getApiBaseUrl());
@@ -72,12 +82,13 @@ export const SettingsPage: React.FC = () => {
     setSaveError("");
     try {
       const data = await api.getSettings();
-      setOllamaUrl(data.ollama_url || "http://localhost:11434");
-      setDefaultModel(data.default_model || "qwen2.5-coder:1.5b");
-      setAiProvider(data.ai_provider || "ollama");
+      setOpenrouterUrl(data.openrouter_api_url || data.ollama_url || "https://openrouter.ai/api/v1");
+      setDefaultModel(data.default_model || "deepseek/deepseek-chat");
+      setAiProvider(data.ai_provider || "openrouter");
 
       // Update configured keys
       setConfiguredKeys({
+        openrouter: !!data.openrouter_api_key_configured,
         openai: data.openai_api_key_configured,
         gemini: data.gemini_api_key_configured,
         claude: data.claude_api_key_configured,
@@ -101,8 +112,8 @@ export const SettingsPage: React.FC = () => {
         `Failed to load settings from server: ${errMsg}. Make sure FastAPI server (http://127.0.0.1:8000) is running.`
       );
       // Fallback sensible defaults if server not reachable
-      if (!ollamaUrl) setOllamaUrl("http://localhost:11434");
-      if (!defaultModel) setDefaultModel("qwen2.5-coder:1.5b");
+      if (!openrouterUrl) setOpenrouterUrl("https://openrouter.ai/api/v1");
+      if (!defaultModel) setDefaultModel("deepseek/deepseek-chat");
     } finally {
       setLoading(false);
     }
@@ -167,20 +178,20 @@ export const SettingsPage: React.FC = () => {
     setCustomModalOpen(false);
   };
 
-  const handleTestOllama = async () => {
-    setTestingOllama(true);
-    setOllamaStatusMsg("");
+  const handleTestOpenRouter = async () => {
+    setTestingOpenRouter(true);
+    setOpenrouterStatusMsg("");
     try {
       const data = await api.getSettings();
       if (data.available_models && data.available_models.length > 0) {
-        setOllamaStatusMsg(`Connected to Ollama successfully! (${data.available_models.length} model(s) available)`);
+        setOpenrouterStatusMsg(`Connected to OpenRouter.ai intelligence engine! (${data.available_models.length} model(s) available)`);
       } else {
-        setOllamaStatusMsg("FastAPI backend reachable, but Ollama service returned no models or is offline.");
+        setOpenrouterStatusMsg("OpenRouter ready (enter your OpenRouter API Key for live cloud models).");
       }
     } catch {
-      setOllamaStatusMsg("Connection test failed. Ensure FastAPI server (http://127.0.0.1:8000) and Ollama (http://localhost:11434) are reachable.");
+      setOpenrouterStatusMsg("Connection test failed. Check your network connection or API endpoint.");
     } finally {
-      setTestingOllama(false);
+      setTestingOpenRouter(false);
     }
   };
 
@@ -192,11 +203,12 @@ export const SettingsPage: React.FC = () => {
 
     try {
       const payload: Record<string, string> = {
-        ollama_url: ollamaUrl,
+        openrouter_api_url: openrouterUrl,
         default_model: defaultModel,
         ai_provider: aiProvider,
       };
 
+      if (openrouterApiKey.trim()) payload.openrouter_api_key = openrouterApiKey.trim();
       if (openaiApiKey.trim()) payload.openai_api_key = openaiApiKey.trim();
       if (geminiApiKey.trim()) payload.gemini_api_key = geminiApiKey.trim();
       if (claudeApiKey.trim()) payload.claude_api_key = claudeApiKey.trim();
@@ -206,6 +218,7 @@ export const SettingsPage: React.FC = () => {
       const updated = await api.updateSettings(payload);
 
       setConfiguredKeys({
+        openrouter: !!updated.openrouter_api_key_configured,
         openai: updated.openai_api_key_configured,
         gemini: updated.gemini_api_key_configured,
         claude: updated.claude_api_key_configured,
@@ -214,6 +227,7 @@ export const SettingsPage: React.FC = () => {
       });
 
       // Clear input buffers on successful save
+      setOpenrouterApiKey("");
       setOpenaiApiKey("");
       setGeminiApiKey("");
       setClaudeApiKey("");
@@ -266,7 +280,7 @@ export const SettingsPage: React.FC = () => {
       {/* Header */}
       <PageHeader
         title="AI Control Center & System Settings"
-        subtitle="Manage LLM providers, API access keys, Ollama API endpoint, and SAST security scanner status"
+        subtitle="Manage LLM providers, OpenRouter API access keys, API endpoint, and SAST security scanner status"
         badge={
           <span className="px-3 py-1 bg-violet-500/10 text-violet-400 border border-violet-500/30 rounded-full text-xs font-mono font-bold uppercase">
             AI Engine Provider: {aiProvider} ({defaultModel})
@@ -311,26 +325,21 @@ export const SettingsPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
           {[
             {
-              id: "ollama",
-              name: "Ollama",
-              badge: "LOCAL",
-              badgeType: "local",
-              status: "Connected",
-              statusType: "success",
-              defaultModel: "qwen3-coder:30b",
-              iconColor: "text-red-500",
-              iconBg: "bg-red-500/10 border-red-500/30",
+              id: "openrouter",
+              name: "OpenRouter.ai",
+              badge: "RECOMMENDED",
+              badgeType: "recommended",
+              status: configuredKeys.openrouter ? "Configured" : "Key Required",
+              statusType: configuredKeys.openrouter ? "success" : "warning",
+              defaultModel: "deepseek/deepseek-chat",
+              iconColor: "text-violet-400",
+              iconBg: "bg-violet-500/10 border-violet-500/30",
               Icon: (props: { className?: string }) => (
                 <svg className={props.className || "w-5 h-5"} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="4" width="18" height="6" rx="2" />
-                  <rect x="3" y="14" width="18" height="6" rx="2" />
-                  <circle cx="7" cy="7" r="1" fill="currentColor" />
-                  <circle cx="10" cy="7" r="1" fill="currentColor" />
-                  <circle cx="7" cy="17" r="1" fill="currentColor" />
-                  <circle cx="10" cy="17" r="1" fill="currentColor" />
+                  <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
                 </svg>
               ),
             },
@@ -469,21 +478,19 @@ export const SettingsPage: React.FC = () => {
                     </div>
                   )}
 
-                  {provider.id !== "ollama" && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleOpenApiKeyModal(provider.id);
-                      }}
-                      className="w-full py-1 px-2 text-[10px] font-mono text-amber-400 hover:text-amber-300 bg-amber-500/5 hover:bg-amber-500/10 border border-amber-500/20 rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer"
-                    >
-                      <Key className="w-3 h-3" />
-                      <span>
-                        {configuredKeys[provider.id] ? "Update API Key" : "Enter API Key"}
-                      </span>
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleOpenApiKeyModal(provider.id);
+                    }}
+                    className="w-full py-1 px-2 text-[10px] font-mono text-amber-400 hover:text-amber-300 bg-amber-500/5 hover:bg-amber-500/10 border border-amber-500/20 rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                  >
+                    <Key className="w-3 h-3" />
+                    <span>
+                      {configuredKeys[provider.id] ? "Update API Key" : "Enter API Key"}
+                    </span>
+                  </button>
                 </div>
 
                 {/* Model Label & Dropdown Selection */}
@@ -560,14 +567,14 @@ export const SettingsPage: React.FC = () => {
       {/* Main Settings Form */}
       <form onSubmit={handleSaveSettings} className="space-y-8">
         
-        {/* Ollama / LLM Endpoint Configuration Panel */}
+        {/* OpenRouter / LLM Endpoint Configuration Panel */}
         <GlassCard className="p-6 space-y-6" topBarGradient={true}>
           <div className="flex items-center justify-between border-b border-slate-800 pb-3">
             <div>
               <h3 className="text-base font-bold text-slate-100 font-sans flex items-center gap-2">
                 <Cpu className="w-5 h-5 text-cyan-400" /> Active AI Provider LLM Configuration
               </h3>
-              <p className="text-xs text-slate-400 mt-1">Configure local zero-latency model endpoints and active weights.</p>
+              <p className="text-xs text-slate-400 mt-1">Configure OpenRouter.ai cloud model endpoint and active weights.</p>
             </div>
 
             <Button
@@ -575,28 +582,28 @@ export const SettingsPage: React.FC = () => {
               variant="glass"
               size="sm"
               icon={RefreshCw}
-              loading={testingOllama}
-              onClick={handleTestOllama}
+              loading={testingOpenRouter}
+              onClick={handleTestOpenRouter}
             >
               Test Connection
             </Button>
           </div>
 
-          {ollamaStatusMsg && (
+          {openrouterStatusMsg && (
             <div className="p-3 bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-xs rounded-xl font-mono">
-              {ollamaStatusMsg}
+              {openrouterStatusMsg}
             </div>
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5 font-mono">
-                Ollama / API Endpoint URL
+                OpenRouter / API Endpoint URL
               </label>
               <input
                 type="text"
-                value={ollamaUrl}
-                onChange={(e) => setOllamaUrl(e.target.value)}
+                value={openrouterUrl}
+                onChange={(e) => setOpenrouterUrl(e.target.value)}
                 className="w-full px-4 py-3 glass-input rounded-xl text-sm font-mono focus:outline-none"
               />
             </div>
@@ -783,7 +790,9 @@ export const SettingsPage: React.FC = () => {
                     type={showModalKey ? "text" : "password"}
                     required
                     placeholder={
-                      keyModalProvider === "openai"
+                      keyModalProvider === "openrouter"
+                        ? "sk-or-v1-..."
+                        : keyModalProvider === "openai"
                         ? "sk-proj-..."
                         : keyModalProvider === "gemini"
                         ? "AIzaSy..."
@@ -864,8 +873,8 @@ export const SettingsPage: React.FC = () => {
                   type="text"
                   required
                   placeholder={
-                    targetProviderForCustom === "ollama"
-                      ? "e.g. llama3:70b-instruct or custom-qwen:v2"
+                    targetProviderForCustom === "openrouter"
+                      ? "e.g. deepseek/deepseek-r1:free or meta-llama/llama-3.3-70b-instruct"
                       : targetProviderForCustom === "openai"
                       ? "e.g. ft:gpt-4o-mini:org:custom-001"
                       : "e.g. my-custom-fine-tuned-model"

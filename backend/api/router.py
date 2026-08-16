@@ -18,7 +18,7 @@ from backend.config import settings
 from backend.scanner.engine import start_background_scan
 from backend.reports.pdf_gen import generate_pdf_report
 from backend.reports.html_gen import generate_html_report
-from backend.ai.ollama_client import ollama_client
+from backend.ai.openrouter_client import openrouter_client, ollama_client
 from typing import List, Optional
 from pathlib import Path
 
@@ -737,15 +737,17 @@ def get_dashboard_stats(current_user: User = Depends(get_current_user), db: Sess
 @router.get("/settings", response_model=AppSettings)
 async def get_settings():
     try:
-        models = await ollama_client.list_models()
+        models = await openrouter_client.list_models()
     except Exception:
         models = []
 
     return AppSettings(
-        ollama_url=settings.OLLAMA_API_URL,
+        openrouter_api_url=settings.OPENROUTER_API_BASE_URL,
+        ollama_url=settings.OPENROUTER_API_BASE_URL,
         default_model=settings.DEFAULT_LLM_MODEL,
         available_models=models,
         ai_provider=settings.AI_PROVIDER,
+        openrouter_api_key_configured=bool(settings.OPENROUTER_API_KEY),
         openai_api_key_configured=bool(settings.OPENAI_API_KEY),
         gemini_api_key_configured=bool(settings.GEMINI_API_KEY),
         groq_api_key_configured=bool(settings.GROQ_API_KEY),
@@ -754,20 +756,32 @@ async def get_settings():
     )
 
 def save_settings_to_env(
-    ollama_url: str,
-    default_model: str,
-    ai_provider: str = "ollama",
+    openrouter_api_url: Optional[str] = None,
+    default_model: Optional[str] = None,
+    ai_provider: str = "openrouter",
+    openrouter_api_key: Optional[str] = None,
     openai_api_key: Optional[str] = None,
     gemini_api_key: Optional[str] = None,
     groq_api_key: Optional[str] = None,
     claude_api_key: Optional[str] = None,
-    grok_api_key: Optional[str] = None
+    grok_api_key: Optional[str] = None,
+    ollama_url: Optional[str] = None,
 ):
     # Update settings object in-memory
-    settings.OLLAMA_API_URL = ollama_url
-    settings.DEFAULT_LLM_MODEL = default_model
-    settings.AI_PROVIDER = ai_provider
+    if openrouter_api_url is not None:
+        settings.OPENROUTER_API_BASE_URL = openrouter_api_url
+        settings.OLLAMA_API_URL = openrouter_api_url
+    elif ollama_url is not None:
+        settings.OPENROUTER_API_BASE_URL = ollama_url
+        settings.OLLAMA_API_URL = ollama_url
+
+    if default_model is not None:
+        settings.DEFAULT_LLM_MODEL = default_model
+    if ai_provider is not None:
+        settings.AI_PROVIDER = ai_provider
     
+    if openrouter_api_key is not None:
+        settings.OPENROUTER_API_KEY = openrouter_api_key
     if openai_api_key is not None:
         settings.OPENAI_API_KEY = openai_api_key
     if gemini_api_key is not None:
@@ -779,7 +793,7 @@ def save_settings_to_env(
     if grok_api_key is not None:
         settings.GROK_API_KEY = grok_api_key
         
-    ollama_client.base_url = ollama_url
+    openrouter_client.base_url = settings.OPENROUTER_API_BASE_URL
     
     # Save back to .env preserving other existing configs
     env_path = settings.BASE_DIR / ".env"
@@ -796,10 +810,12 @@ def save_settings_to_env(
             pass
             
     # Update settings
-    env_vars["OLLAMA_API_URL"] = settings.OLLAMA_API_URL
+    env_vars["OPENROUTER_API_BASE_URL"] = settings.OPENROUTER_API_BASE_URL
     env_vars["DEFAULT_LLM_MODEL"] = settings.DEFAULT_LLM_MODEL
     env_vars["AI_PROVIDER"] = settings.AI_PROVIDER
     
+    if settings.OPENROUTER_API_KEY:
+        env_vars["OPENROUTER_API_KEY"] = settings.OPENROUTER_API_KEY
     if settings.OPENAI_API_KEY:
         env_vars["OPENAI_API_KEY"] = settings.OPENAI_API_KEY
     if settings.GEMINI_API_KEY:
@@ -824,41 +840,40 @@ async def update_settings(
     background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user)
 ):
-    current_url = settings.OLLAMA_API_URL
+    current_url = settings.OPENROUTER_API_BASE_URL
     current_model = settings.DEFAULT_LLM_MODEL
     current_provider = settings.AI_PROVIDER
     
-    new_url = settings_in.ollama_url if settings_in.ollama_url is not None else current_url
+    new_url = settings_in.openrouter_api_url or settings_in.ollama_url or current_url
     new_model = settings_in.default_model if settings_in.default_model is not None else current_model
     new_provider = settings_in.ai_provider if settings_in.ai_provider is not None else current_provider
     
     # Save settings
     save_settings_to_env(
-        new_url, 
-        new_model, 
-        new_provider,
-        settings_in.openai_api_key,
-        settings_in.gemini_api_key,
-        settings_in.groq_api_key,
-        settings_in.claude_api_key,
-        settings_in.grok_api_key
+        openrouter_api_url=new_url, 
+        default_model=new_model, 
+        ai_provider=new_provider,
+        openrouter_api_key=settings_in.openrouter_api_key,
+        openai_api_key=settings_in.openai_api_key,
+        gemini_api_key=settings_in.gemini_api_key,
+        groq_api_key=settings_in.groq_api_key,
+        claude_api_key=settings_in.claude_api_key,
+        grok_api_key=settings_in.grok_api_key
     )
     
     # List models with updated client
     try:
-        models = await ollama_client.list_models()
+        models = await openrouter_client.list_models()
     except Exception:
         models = []
-    
-    # If using local Ollama, check if the requested model needs to be pulled
-    if settings.AI_PROVIDER == "ollama" and settings_in.default_model and settings_in.default_model not in models:
-        background_tasks.add_task(ollama_client.verify_or_pull_model, settings_in.default_model)
         
     return AppSettings(
-        ollama_url=settings.OLLAMA_API_URL,
+        openrouter_api_url=settings.OPENROUTER_API_BASE_URL,
+        ollama_url=settings.OPENROUTER_API_BASE_URL,
         default_model=settings.DEFAULT_LLM_MODEL,
         available_models=models,
         ai_provider=settings.AI_PROVIDER,
+        openrouter_api_key_configured=bool(settings.OPENROUTER_API_KEY),
         openai_api_key_configured=bool(settings.OPENAI_API_KEY),
         gemini_api_key_configured=bool(settings.GEMINI_API_KEY),
         groq_api_key_configured=bool(settings.GROQ_API_KEY),

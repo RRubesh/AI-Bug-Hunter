@@ -37,7 +37,7 @@ from backend.ai.router import router as ai_router
 
 import shutil
 from backend.database.mongodb import mongo_manager
-from backend.ai.ollama_client import ollama_client
+from backend.ai.openrouter_client import openrouter_client
 
 # Initialize Database tables
 Base.metadata.create_all(bind=engine)
@@ -84,13 +84,14 @@ app.include_router(ai_router, prefix="/api")
 async def healthcheck():
     mongo_status = "connected" if mongo_manager.is_connected() else ("configured" if settings.MONGODB_URL else "not_configured")
     
-    # Check Ollama connection
-    ollama_connected = False
+    # Check OpenRouter AI connection / readiness
+    ai_status = "configured" if (settings.OPENROUTER_API_KEY or settings.OPENAI_API_KEY or settings.GEMINI_API_KEY or settings.GROQ_API_KEY) else "ready"
     try:
-        models = await ollama_client.list_models()
-        ollama_connected = bool(models)
+        models = await openrouter_client.list_models()
+        if models:
+            ai_status = "connected"
     except Exception:
-        ollama_connected = False
+        pass
 
     # Check availability of scanner executables
     gitleaks_avail = shutil.which("gitleaks") is not None
@@ -102,7 +103,9 @@ async def healthcheck():
         "api": "healthy",
         "app": settings.APP_NAME,
         "mongodb": mongo_status,
-        "ollama": "connected" if ollama_connected else "disconnected",
+        "ai_engine": ai_status,
+        "openrouter": ai_status,
+        "ollama": "connected" if ai_status == "connected" else "ready",
         "scanners": {
             "gitleaks": gitleaks_avail,
             "bandit": bandit_avail,

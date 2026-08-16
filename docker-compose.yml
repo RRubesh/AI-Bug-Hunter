@@ -31,8 +31,9 @@ services:
       - ./backend/.env
     environment:
       - DATABASE_URL=postgresql://postgres:super-secure-db-password-987@db:5432/aibughunter
-      - OLLAMA_API_URL=http://host.docker.internal:11434
-      - DEFAULT_LLM_MODEL=qwen2.5-coder:1.5b
+      - AI_PROVIDER=openrouter
+      - OPENROUTER_API_BASE_URL=https://openrouter.ai/api/v1
+      - DEFAULT_LLM_MODEL=deepseek/deepseek-chat
       - SECRET_KEY=super-secret-key-change-in-production-1234567890
     ports:
       - "8000:8000"

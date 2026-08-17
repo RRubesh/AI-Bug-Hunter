@@ -784,18 +784,18 @@ def save_settings_to_env(
         clean_prov = "openrouter" if ai_provider.lower() == "ollama" else ai_provider
         settings.AI_PROVIDER = clean_prov
     
-    if openrouter_api_key is not None:
-        settings.OPENROUTER_API_KEY = openrouter_api_key
-    if openai_api_key is not None:
-        settings.OPENAI_API_KEY = openai_api_key
-    if gemini_api_key is not None:
-        settings.GEMINI_API_KEY = gemini_api_key
-    if groq_api_key is not None:
-        settings.GROQ_API_KEY = groq_api_key
-    if claude_api_key is not None:
-        settings.CLAUDE_API_KEY = claude_api_key
-    if grok_api_key is not None:
-        settings.GROK_API_KEY = grok_api_key
+    if openrouter_api_key is not None and openrouter_api_key.strip():
+        settings.OPENROUTER_API_KEY = openrouter_api_key.strip()
+    if openai_api_key is not None and openai_api_key.strip():
+        settings.OPENAI_API_KEY = openai_api_key.strip()
+    if gemini_api_key is not None and gemini_api_key.strip():
+        settings.GEMINI_API_KEY = gemini_api_key.strip()
+    if groq_api_key is not None and groq_api_key.strip():
+        settings.GROQ_API_KEY = groq_api_key.strip()
+    if claude_api_key is not None and claude_api_key.strip():
+        settings.CLAUDE_API_KEY = claude_api_key.strip()
+    if grok_api_key is not None and grok_api_key.strip():
+        settings.GROK_API_KEY = grok_api_key.strip()
         
     openrouter_client.base_url = settings.OPENROUTER_API_BASE_URL
     

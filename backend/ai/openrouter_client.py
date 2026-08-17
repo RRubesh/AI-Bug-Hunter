@@ -309,116 +309,168 @@ class OpenRouterClient:
         target_model = model or settings.DEFAULT_LLM_MODEL or "deepseek/deepseek-chat"
 
         # Auto-infer provider from model name if not explicitly set
-        if not provider:
-            if target_model.startswith(("gpt-", "o1", "o3", "openai/")):
+        if not provider or provider == "openrouter":
+            if target_model.startswith(("gpt-", "o1", "o3", "openai/")) and settings.OPENAI_API_KEY:
                 target_provider = "openai"
-            elif target_model.startswith(("gemini-", "google/")):
+            elif (target_model.startswith("gemini-") or (target_model.startswith("google/") and not target_model.endswith(":free"))) and settings.GEMINI_API_KEY:
                 target_provider = "gemini"
-            elif target_model.startswith(("claude-", "anthropic/")):
+            elif target_model.startswith(("claude-", "anthropic/")) and settings.CLAUDE_API_KEY:
                 target_provider = "claude"
-            elif target_model.startswith(("grok-", "x-ai/")):
+            elif target_model.startswith(("grok-", "x-ai/")) and settings.GROK_API_KEY:
                 target_provider = "grok"
-            elif "groq" in target_model or "llama-3" in target_model:
+            elif ("groq" in target_model or "llama-3" in target_model) and settings.GROQ_API_KEY:
                 target_provider = "groq"
 
         # Tier 1: Direct Provider APIs
         if target_provider == "openai" and settings.OPENAI_API_KEY:
-            headers = {
-                "Authorization": f"Bearer {settings.OPENAI_API_KEY}",
-                "Content-Type": "application/json"
-            }
-            clean_model = target_model.replace("openai/", "")
-            payload = {
-                "model": clean_model if clean_model else "gpt-4o-mini",
-                "messages": messages,
-                "temperature": temperature
-            }
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
-                if response.status_code == 200:
-                    return response.json()["choices"][0]["message"]["content"]
-                raise httpx.HTTPStatusError(f"OpenAI error {response.status_code}: {response.text}", request=response.request, response=response)
+            try:
+                headers = {
+                    "Authorization": f"Bearer {settings.OPENAI_API_KEY}",
+                    "Content-Type": "application/json"
+                }
+                clean_model = target_model.replace("openai/", "").split(":")[0]
+                if not clean_model:
+                    clean_model = "gpt-4o-mini"
+                
+                payload: Dict[str, Any] = {
+                    "model": clean_model,
+                    "messages": messages
+                }
+                # o1 and o3 models do not support custom temperature
+                if not clean_model.startswith(("o1", "o3")):
+                    payload["temperature"] = temperature
+
+                async with httpx.AsyncClient(timeout=35.0) as client:
+                    response = await client.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
+                    if response.status_code == 200:
+                        return response.json()["choices"][0]["message"]["content"]
+                    raise httpx.HTTPStatusError(f"OpenAI error {response.status_code}: {response.text}", request=response.request, response=response)
+            except Exception as direct_err:
+                if not settings.OPENROUTER_API_KEY:
+                    raise direct_err
 
         elif target_provider == "gemini" and settings.GEMINI_API_KEY:
-            headers = {
-                "Authorization": f"Bearer {settings.GEMINI_API_KEY}",
-                "Content-Type": "application/json"
-            }
-            clean_model = target_model.replace("google/", "")
-            payload = {
-                "model": clean_model if clean_model else "gemini-1.5-flash",
-                "messages": messages,
-                "temperature": temperature
-            }
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.post("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", headers=headers, json=payload)
-                if response.status_code == 200:
-                    return response.json()["choices"][0]["message"]["content"]
-                raise httpx.HTTPStatusError(f"Gemini error {response.status_code}: {response.text}", request=response.request, response=response)
+            try:
+                headers = {
+                    "Authorization": f"Bearer {settings.GEMINI_API_KEY}",
+                    "Content-Type": "application/json"
+                }
+                clean_model = target_model.replace("google/", "").split(":")[0]
+                if clean_model.endswith("-001"):
+                    clean_model = clean_model[:-4]
+                if not clean_model or not clean_model.startswith("gemini"):
+                    clean_model = "gemini-2.0-flash"
+
+                payload = {
+                    "model": clean_model,
+                    "messages": messages,
+                    "temperature": temperature
+                }
+                # Google OpenAI-compatible endpoint supports Authorization header and URL key
+                endpoint_url = f"https://generativelanguage.googleapis.com/v1beta/openai/chat/completions?key={settings.GEMINI_API_KEY}"
+                async with httpx.AsyncClient(timeout=35.0) as client:
+                    response = await client.post(endpoint_url, headers=headers, json=payload)
+                    if response.status_code == 200:
+                        choices = response.json().get("choices", [])
+                        if choices and len(choices) > 0:
+                            return choices[0].get("message", {}).get("content", "")
+                    raise httpx.HTTPStatusError(f"Gemini error {response.status_code}: {response.text}", request=response.request, response=response)
+            except Exception as direct_err:
+                if not settings.OPENROUTER_API_KEY:
+                    raise direct_err
 
         elif target_provider == "claude" and settings.CLAUDE_API_KEY:
-            headers = {
-                "x-api-key": settings.CLAUDE_API_KEY,
-                "anthropic-version": "2023-06-01",
-                "Content-Type": "application/json"
-            }
-            clean_model = target_model.replace("anthropic/", "")
-            system_text = ""
-            claude_msgs = []
-            for msg in messages:
-                if msg["role"] == "system":
-                    system_text += msg["content"] + "\n"
-                else:
-                    claude_msgs.append({"role": msg["role"], "content": msg["content"]})
-            if not claude_msgs:
-                claude_msgs.append({"role": "user", "content": "Hello"})
-            payload = {
-                "model": clean_model if clean_model else "claude-3-5-sonnet-20241022",
-                "max_tokens": 4096,
-                "messages": claude_msgs,
-                "temperature": temperature
-            }
-            if system_text:
-                payload["system"] = system_text.strip()
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.post("https://api.anthropic.com/v1/messages", headers=headers, json=payload)
-                if response.status_code == 200:
-                    return response.json()["content"][0]["text"]
-                raise httpx.HTTPStatusError(f"Claude error {response.status_code}: {response.text}", request=response.request, response=response)
+            try:
+                headers = {
+                    "x-api-key": settings.CLAUDE_API_KEY,
+                    "anthropic-version": "2023-06-01",
+                    "Content-Type": "application/json"
+                }
+                clean_model = target_model.replace("anthropic/", "").split(":")[0]
+                if not clean_model:
+                    clean_model = "claude-3-5-sonnet-20241022"
+
+                system_text = ""
+                claude_msgs: List[Dict[str, str]] = []
+                for msg in messages:
+                    if msg["role"] == "system":
+                        system_text += msg["content"] + "\n"
+                    else:
+                        role = "assistant" if msg["role"] == "assistant" else "user"
+                        # Merge consecutive messages with identical roles for Anthropic spec
+                        if claude_msgs and claude_msgs[-1]["role"] == role:
+                            claude_msgs[-1]["content"] += "\n\n" + msg["content"]
+                        else:
+                            claude_msgs.append({"role": role, "content": msg["content"]})
+
+                if not claude_msgs:
+                    claude_msgs.append({"role": "user", "content": "Hello"})
+
+                payload = {
+                    "model": clean_model,
+                    "max_tokens": 4096,
+                    "messages": claude_msgs,
+                    "temperature": temperature
+                }
+                if system_text:
+                    payload["system"] = system_text.strip()
+
+                async with httpx.AsyncClient(timeout=35.0) as client:
+                    response = await client.post("https://api.anthropic.com/v1/messages", headers=headers, json=payload)
+                    if response.status_code == 200:
+                        content_arr = response.json().get("content", [])
+                        if content_arr and len(content_arr) > 0:
+                            return content_arr[0].get("text", "")
+                    raise httpx.HTTPStatusError(f"Claude error {response.status_code}: {response.text}", request=response.request, response=response)
+            except Exception as direct_err:
+                if not settings.OPENROUTER_API_KEY:
+                    raise direct_err
 
         elif target_provider == "grok" and settings.GROK_API_KEY:
-            headers = {
-                "Authorization": f"Bearer {settings.GROK_API_KEY}",
-                "Content-Type": "application/json"
-            }
-            clean_model = target_model.replace("x-ai/", "")
-            payload = {
-                "model": clean_model if clean_model else "grok-2-1212",
-                "messages": messages,
-                "temperature": temperature
-            }
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.post("https://api.x.ai/v1/chat/completions", headers=headers, json=payload)
-                if response.status_code == 200:
-                    return response.json()["choices"][0]["message"]["content"]
-                raise httpx.HTTPStatusError(f"Grok error {response.status_code}: {response.text}", request=response.request, response=response)
+            try:
+                headers = {
+                    "Authorization": f"Bearer {settings.GROK_API_KEY}",
+                    "Content-Type": "application/json"
+                }
+                clean_model = target_model.replace("x-ai/", "").split(":")[0]
+                payload = {
+                    "model": clean_model if clean_model else "grok-2-1212",
+                    "messages": messages,
+                    "temperature": temperature
+                }
+                async with httpx.AsyncClient(timeout=35.0) as client:
+                    response = await client.post("https://api.x.ai/v1/chat/completions", headers=headers, json=payload)
+                    if response.status_code == 200:
+                        choices = response.json().get("choices", [])
+                        if choices and len(choices) > 0:
+                            return choices[0].get("message", {}).get("content", "")
+                    raise httpx.HTTPStatusError(f"Grok error {response.status_code}: {response.text}", request=response.request, response=response)
+            except Exception as direct_err:
+                if not settings.OPENROUTER_API_KEY:
+                    raise direct_err
 
         elif target_provider == "groq" and settings.GROQ_API_KEY:
-            headers = {
-                "Authorization": f"Bearer {settings.GROQ_API_KEY}",
-                "Content-Type": "application/json"
-            }
-            clean_model = target_model.replace("groq/", "")
-            payload = {
-                "model": clean_model if clean_model else "llama-3.3-70b-versatile",
-                "messages": messages,
-                "temperature": temperature
-            }
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=payload)
-                if response.status_code == 200:
-                    return response.json()["choices"][0]["message"]["content"]
-                raise httpx.HTTPStatusError(f"Groq error {response.status_code}: {response.text}", request=response.request, response=response)
+            try:
+                headers = {
+                    "Authorization": f"Bearer {settings.GROQ_API_KEY}",
+                    "Content-Type": "application/json"
+                }
+                clean_model = target_model.replace("groq/", "").split(":")[0]
+                payload = {
+                    "model": clean_model if clean_model else "llama-3.3-70b-versatile",
+                    "messages": messages,
+                    "temperature": temperature
+                }
+                async with httpx.AsyncClient(timeout=35.0) as client:
+                    response = await client.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=payload)
+                    if response.status_code == 200:
+                        choices = response.json().get("choices", [])
+                        if choices and len(choices) > 0:
+                            return choices[0].get("message", {}).get("content", "")
+                    raise httpx.HTTPStatusError(f"Groq error {response.status_code}: {response.text}", request=response.request, response=response)
+            except Exception as direct_err:
+                if not settings.OPENROUTER_API_KEY:
+                    raise direct_err
 
         # Tier 2: OpenRouter Hub Routing
         if settings.OPENROUTER_API_KEY:
@@ -464,7 +516,14 @@ class OpenRouterClient:
             f"Please enter your {target_provider.upper()} API Key to connect live cloud reasoning."
         )
 
-    async def explain_vulnerability(self, category: str, message: str, code_snippet: str) -> Dict[str, str]:
+    async def explain_vulnerability(
+        self,
+        category: str,
+        message: str,
+        code_snippet: str,
+        provider: Optional[str] = None,
+        model: Optional[str] = None
+    ) -> Dict[str, str]:
         system_prompt = (
             "You are a Senior Defensive Cybersecurity Engineer and Secure Coding Expert.\n"
             "Analyze the detected vulnerability and provide an educational review.\n"
@@ -488,7 +547,7 @@ class OpenRouterClient:
                 {"role": "user", "content": user_prompt}
             ]
 
-            ai_message = await self._call_llm(messages, temperature=0.2)
+            ai_message = await self._call_llm(messages, temperature=0.2, provider=provider, model=model)
             
             # Look for variations of remediation header
             pattern = re.compile(r'#+\s*(?:Secure\s*)?Remediation', re.IGNORECASE)

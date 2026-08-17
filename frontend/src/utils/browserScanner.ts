@@ -234,9 +234,56 @@ export function loadStoredData(): Record<number, StoredProjectData> {
   }
 }
 
+function cleanProjectScanCircular(obj: any): any {
+  if (!obj || typeof obj !== "object") return obj;
+  const seen = new WeakSet();
+
+  function sanitize(item: any, depth = 0): any {
+    if (depth > 12) return undefined;
+    if (item === null || typeof item !== "object") return item;
+    if (seen.has(item)) {
+      return undefined;
+    }
+    seen.add(item);
+
+    if (Array.isArray(item)) {
+      return item.map((i) => sanitize(i, depth + 1)).filter((i) => i !== undefined);
+    }
+
+    const result: Record<string, any> = {};
+    for (const [k, v] of Object.entries(item)) {
+      // Avoid circular project <-> scan references
+      if (k === "project" && typeof v === "object" && v !== null && ("latest_scan" in (v as any) || "scans" in (v as any))) {
+        const p = v as any;
+        result[k] = {
+          id: p.id,
+          name: p.name,
+          description: p.description,
+          upload_type: p.upload_type,
+          file_path: p.file_path,
+          language_detected: p.language_detected,
+          owner_id: p.owner_id,
+          owner_username: p.owner_username,
+          created_at: p.created_at,
+          updated_at: p.updated_at,
+        };
+        continue;
+      }
+      const val = sanitize(v, depth + 1);
+      if (val !== undefined) {
+        result[k] = val;
+      }
+    }
+    return result;
+  }
+
+  return sanitize(obj);
+}
+
 export function saveStoredData(data: Record<number, StoredProjectData>) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    const clean = cleanProjectScanCircular(data);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(clean));
   } catch (err) {
     console.error("Failed to save local storage data:", err);
   }

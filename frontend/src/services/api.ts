@@ -63,7 +63,7 @@ export interface Vulnerability {
 
 export interface ChatMessage {
   id: number;
-  scan_id: number;
+  scan_id?: number | null;
   user_id: number;
   message: string;
   is_ai: boolean;

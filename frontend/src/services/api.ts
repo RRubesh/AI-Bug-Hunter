@@ -543,6 +543,7 @@ export const api = {
     provider?: string,
     model?: string
   ): Promise<ChatMessage> {
+    // First try the backend
     try {
       const url = scanId ? `/api/ai/chat/${scanId}` : `/api/ai/chat`;
       const res = await fetch(getApiUrl(url), {
@@ -557,22 +558,127 @@ export const api = {
       });
       return await safeJson(res);
     } catch {
-      // In-browser intelligent assistant response with rich cybersecurity insights
+      // Backend not available — try direct OpenRouter/OpenAI API from browser
       const cleanProv = (!provider || provider.toLowerCase() === "ollama") ? "openrouter" : provider.toLowerCase();
+      const cleanModel = model || "deepseek/deepseek-chat";
+
+      // Try to get stored API key from localStorage (set via Settings page)
+      const keyMap: Record<string, string> = {
+        openrouter: localStorage.getItem("openrouter_api_key") || "",
+        openai: localStorage.getItem("openai_api_key") || "",
+        gemini: localStorage.getItem("gemini_api_key") || "",
+        claude: localStorage.getItem("claude_api_key") || "",
+        grok: localStorage.getItem("grok_api_key") || "",
+        groq: localStorage.getItem("groq_api_key") || "",
+      };
+      const storedKey = keyMap[cleanProv] || keyMap["openrouter"];
+
+      if (storedKey) {
+        try {
+          // Direct browser → OpenRouter API call
+          const endpoint = cleanProv === "openai"
+            ? "https://api.openai.com/v1/chat/completions"
+            : "https://openrouter.ai/api/v1/chat/completions";
+
+          const directRes = await fetch(endpoint, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${storedKey}`,
+              "HTTP-Referer": window.location.origin,
+              "X-Title": "AI Bug Hunter Security Assistant",
+            },
+            body: JSON.stringify({
+              model: cleanModel,
+              messages: [
+                {
+                  role: "system",
+                  content: "You are an expert cybersecurity AI assistant specializing in SAST (Static Application Security Testing), vulnerability analysis, and secure code remediation. Provide detailed, actionable security advice with code examples. Format responses using markdown with code blocks."
+                },
+                { role: "user", content: message }
+              ],
+              max_tokens: 1024,
+              temperature: 0.3,
+            }),
+          });
+
+          if (directRes.ok) {
+            const data = await directRes.json();
+            const aiText = data?.choices?.[0]?.message?.content || "";
+            if (aiText) {
+              return {
+                id: Date.now(),
+                scan_id: scanId || undefined,
+                user_id: 1,
+                message: `🛡️ **AI Security Assistant** (${cleanProv.toUpperCase()} · ${cleanModel})\n\n${aiText}`,
+                is_ai: true,
+                created_at: new Date().toISOString(),
+              };
+            }
+          }
+        } catch {
+          // Fall through to local intelligence
+        }
+      }
+
+      // Local intelligence fallback — comprehensive security keyword matching
       const lower = message.toLowerCase();
-      let reply = `🛡️ **AI Security Assistant** (${cleanProv.toUpperCase()} · ${model || "deepseek/deepseek-chat"})\n\n`;
+      let reply = `🛡️ **AI Security Assistant** (${cleanProv.toUpperCase()} · ${cleanModel})\n\n`;
+
       if (lower.includes("sql") || lower.includes("sqli") || lower.includes("injection")) {
-        reply += `**SQL Injection Mitigation (CWE-89)**:\nAlways use parameterized queries or trusted ORMs to prevent untrusted input from modifying SQL structure.\n\n\`\`\`python\n# ✅ SECURE (Parameterized query with placeholders)\ncursor.execute("SELECT id, email, role FROM users WHERE username = %s AND status = 'active'", (username,))\nuser = cursor.fetchone()\n\`\`\``;
-      } else if (lower.includes("secret") || lower.includes("key") || lower.includes("token") || lower.includes("password")) {
-        reply += `**Credential & Secret Protection (CWE-798)**:\nNever hardcode credentials in source code. Inject them using environment variables (\`.env\`) and load with \`os.getenv()\` or \`process.env\`.\n\n\`\`\`python\nimport os\nfrom dotenv import load_dotenv\n\nload_dotenv()\nAPI_KEY = os.getenv("API_KEY")\n\`\`\``;
-      } else if (lower.includes("xss") || lower.includes("cross-site") || lower.includes("html")) {
-        reply += `**Cross-Site Scripting (XSS - CWE-79)**:\nNever trust input inserted into the DOM. Use safe text properties (\`textContent\`) or sanitize with DOMPurify.\n\n\`\`\`typescript\n// ✅ SECURE\nelement.textContent = userInput;\n\`\`\``;
-      } else if (lower.includes("ssrf") || lower.includes("request forgery")) {
-        reply += `**Server-Side Request Forgery (SSRF - CWE-918)**:\nValidate all destination URLs against an allowlist of trusted domains and block private/loopback IP ranges (RFC 1918 / 169.254.169.254).`;
-      } else if (lower.includes("owasp") || lower.includes("checklist")) {
-        reply += `**OWASP Top 10 Security Highlights**:\n1. **A01 Broken Access Control**: Deny by default; enforce role checks on all routes.\n2. **A02 Cryptographic Failures**: Use strong password hashes (Argon2id/bcrypt) and TLS 1.3+.\n3. **A03 Injection**: Parameterize all queries.\n4. **A07 Auth Failures**: Implement MFA and secure session management.`;
+        reply += `**SQL Injection Mitigation (CWE-89)**\n\nUse parameterized queries or trusted ORMs — never string-interpolate user input into SQL.\n\n\`\`\`python\n# ✅ SECURE — Parameterized\ncursor.execute("SELECT id, email FROM users WHERE username = %s", (username,))\n\n# ❌ VULNERABLE — String format\ncursor.execute(f"SELECT * FROM users WHERE username = '{username}'")\n\`\`\``;
+
+      } else if (lower.includes("cors") || lower.includes("csrf") || lower.includes("cross-origin") || lower.includes("cross origin")) {
+        reply += `**CORS & CSRF Hardening (CWE-942 / CWE-352)**\n\n**CORS** — Never use \`*\` on authenticated endpoints. Whitelist only trusted origins:\n\n\`\`\`python\n# FastAPI / Starlette\napp.add_middleware(\n    CORSMiddleware,\n    allow_origins=["https://yourdomain.com"],  # ✅ explicit whitelist\n    allow_credentials=True,\n    allow_methods=["GET", "POST"],\n    allow_headers=["Authorization", "Content-Type"],\n)\n\`\`\`\n\n**CSRF** — Use SameSite cookies and CSRF tokens on state-mutating requests:\n\n\`\`\`http\nSet-Cookie: session=abc; SameSite=Strict; Secure; HttpOnly\n\`\`\`\n\n\`\`\`typescript\n// Include CSRF token in every state-mutating request\nfetch('/api/transfer', {\n  method: 'POST',\n  headers: { 'X-CSRF-Token': getCsrfToken() },\n  body: JSON.stringify(payload),\n});\n\`\`\``;
+
+      } else if (lower.includes("xss") || lower.includes("cross-site scripting")) {
+        reply += `**Cross-Site Scripting (XSS — CWE-79)**\n\nNever inject untrusted data into the DOM via \`innerHTML\`. Use safe APIs or sanitizers:\n\n\`\`\`typescript\n// ❌ VULNERABLE\ndiv.innerHTML = userInput;\n\n// ✅ SECURE — safe text insertion\ndiv.textContent = userInput;\n\n// ✅ SECURE — DOMPurify for rich HTML\nimport DOMPurify from 'dompurify';\ndiv.innerHTML = DOMPurify.sanitize(userInput);\n\`\`\`\n\n**Content Security Policy header:**\n\`\`\`http\nContent-Security-Policy: default-src 'self'; script-src 'self'; object-src 'none';\n\`\`\``;
+
+      } else if (lower.includes("secret") || lower.includes("hardcoded") || lower.includes("credential") || lower.includes("api key")) {
+        reply += `**Hardcoded Secrets & Credential Leak (CWE-798)**\n\nNever commit secrets to source code. Use environment variables and secret vaults:\n\n\`\`\`python\nimport os\nfrom dotenv import load_dotenv\n\nload_dotenv()\nAPI_KEY = os.getenv("API_KEY")       # ✅ from .env\nDB_PASS = os.getenv("DATABASE_PASS") # ✅ from .env\n\`\`\`\n\n\`\`\`bash\n# .gitignore — always exclude\n.env\n*.pem\n*.key\nsecrets.json\n\`\`\`\n\n**For production:** Use AWS Secrets Manager, HashiCorp Vault, or GCP Secret Manager.`;
+
+      } else if (lower.includes("auth") || lower.includes("jwt") || lower.includes("session") || lower.includes("login") || lower.includes("password")) {
+        reply += `**Authentication & Session Security (CWE-287 / CWE-384)**\n\n\`\`\`python\n# ✅ Secure password hashing with bcrypt\nfrom passlib.context import CryptContext\npwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")\nhashed = pwd_ctx.hash(plain_password)\nassert pwd_ctx.verify(plain_password, hashed)\n\`\`\`\n\n**JWT Best Practices:**\n- Use \`HS256\` (HMAC) or \`RS256\` (RSA) with a strong secret/key\n- Set short expiry (\`exp\`) — e.g. 15 min access tokens\n- Refresh tokens should be HTTP-only cookies (not localStorage)\n- Validate \`iss\`, \`aud\`, and \`exp\` on every request\n\n\`\`\`python\n# ✅ Secure token validation\nfrom jose import jwt, JWTError\ntry:\n    payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])\nexcept JWTError:\n    raise HTTPException(status_code=401)\n\`\`\``;
+
+      } else if (lower.includes("crypto") || lower.includes("md5") || lower.includes("sha1") || lower.includes("hash") || lower.includes("encrypt")) {
+        reply += `**Cryptographic Weakness (CWE-327 / CWE-916)**\n\n❌ **Broken algorithms to avoid:** MD5, SHA-1, DES, RC4\n✅ **Secure algorithms:**\n\n| Use Case | Algorithm |\n|---|---|\n| Password hashing | Argon2id, bcrypt, scrypt |\n| Data integrity | SHA-256, SHA-3 |\n| Symmetric encryption | AES-256-GCM |\n| Asymmetric encryption | RSA-4096, ECC P-384 |\n\n\`\`\`python\nimport hashlib, secrets\n\n# ✅ Secure file integrity hash\nhash = hashlib.sha256(data).hexdigest()\n\n# ✅ Secure token generation\ntoken = secrets.token_urlsafe(32)\n\`\`\``;
+
+      } else if (lower.includes("rce") || lower.includes("remote code") || lower.includes("command") || lower.includes("eval") || lower.includes("exec") || lower.includes("subprocess")) {
+        reply += `**Remote Code Execution / Command Injection (CWE-78 / CWE-94)**\n\n❌ **Never** pass user input to shell commands or \`eval()\`:\n\n\`\`\`python\n# ❌ VULNERABLE\nos.system(f"ping {user_ip}")\neval(user_input)\nsubprocess.run(user_cmd, shell=True)\n\n# ✅ SECURE — use list args, no shell=True\nimport subprocess, shlex\ncmd = ["ping", "-c", "1", validated_ip]\nresult = subprocess.run(cmd, capture_output=True, timeout=5)\n\`\`\`\n\n**Allowlist validation for IP/hostname inputs:**\n\`\`\`python\nimport ipaddress\ntry:\n    ipaddress.ip_address(user_ip)  # validates format\nexcept ValueError:\n    raise ValueError("Invalid IP address")\n\`\`\``;
+
+      } else if (lower.includes("path traversal") || lower.includes("directory") || lower.includes("file upload") || lower.includes("lfi") || lower.includes("rfi")) {
+        reply += `**Path Traversal / File Inclusion (CWE-22)**\n\n\`\`\`python\nimport os\nfrom pathlib import Path\n\nBASE_DIR = Path("/var/app/uploads").resolve()\n\ndef safe_file_path(filename: str) -> Path:\n    # Strip dangerous characters\n    safe_name = os.path.basename(filename)\n    full_path = (BASE_DIR / safe_name).resolve()\n    # Ensure path stays inside BASE_DIR\n    if not str(full_path).startswith(str(BASE_DIR)):\n        raise ValueError("Path traversal detected!")\n    return full_path\n\`\`\`\n\n**File upload restrictions:**\n\`\`\`python\nALLOWED_EXTENSIONS = {".jpg", ".png", ".pdf", ".txt"}\nif Path(filename).suffix.lower() not in ALLOWED_EXTENSIONS:\n    raise ValueError("File type not permitted")\n\`\`\``;
+
+      } else if (lower.includes("deserializ") || lower.includes("pickle") || lower.includes("yaml") || lower.includes("xml") || lower.includes("xxe")) {
+        reply += `**Insecure Deserialization / XXE (CWE-502 / CWE-611)**\n\n\`\`\`python\n# ❌ VULNERABLE — pickle from untrusted source\nobj = pickle.loads(user_data)\n\n# ✅ SECURE — use JSON for data exchange\nimport json\nobj = json.loads(user_data)\n\`\`\`\n\n**XXE Prevention — disable external entities in XML parsers:**\n\`\`\`python\nimport defusedxml.ElementTree as ET\ntree = ET.parse(xml_file)  # ✅ defusedxml blocks XXE\n\`\`\`\n\n**YAML safe loading:**\n\`\`\`python\nimport yaml\ndata = yaml.safe_load(input_str)  # ✅ not yaml.load()\n\`\`\``;
+
+      } else if (lower.includes("ssrf") || lower.includes("server-side request")) {
+        reply += `**Server-Side Request Forgery (SSRF — CWE-918)**\n\nValidate all outbound URLs against an allowlist and block internal/metadata IP ranges:\n\n\`\`\`python\nimport ipaddress, urllib.parse\n\nALLOWED_HOSTS = {"api.github.com", "api.stripe.com"}\nBLOCKED_RANGES = [ipaddress.ip_network("169.254.0.0/16"),  # AWS metadata\n                   ipaddress.ip_network("10.0.0.0/8"),\n                   ipaddress.ip_network("127.0.0.0/8")]\n\ndef validate_url(url: str):\n    parsed = urllib.parse.urlparse(url)\n    if parsed.hostname not in ALLOWED_HOSTS:\n        raise ValueError("Host not in allowlist")\n\`\`\``;
+
+      } else if (lower.includes("owasp") || lower.includes("top 10") || lower.includes("checklist")) {
+        reply += `**OWASP Top 10 — 2021 Security Checklist**\n\n| Rank | Risk | Key Mitigation |\n|---|---|---|\n| A01 | Broken Access Control | Deny-by-default, RBAC on all routes |\n| A02 | Cryptographic Failures | TLS 1.3+, Argon2id passwords |\n| A03 | Injection (SQLi, CMDi) | Parameterized queries, allowlist validation |\n| A04 | Insecure Design | Threat modelling, security requirements |\n| A05 | Security Misconfiguration | Disable debug/default creds, patch headers |\n| A06 | Vulnerable Components | \`npm audit\`, \`pip-audit\`, Dependabot |\n| A07 | Auth Failures | MFA, short-lived JWTs, session expiry |\n| A08 | Software Integrity | SRI hashes, signed CI/CD pipeline |\n| A09 | Logging Failures | Structured logs, alert on auth anomalies |\n| A10 | SSRF | URL allowlist, block internal IP ranges |`;
+
+      } else if (lower.includes("rate limit") || lower.includes("brute force") || lower.includes("dos") || lower.includes("ddos")) {
+        reply += `**Rate Limiting & Brute-Force Protection**\n\n\`\`\`python\n# FastAPI with slowapi rate limiter\nfrom slowapi import Limiter\nfrom slowapi.util import get_remote_address\n\nlimiter = Limiter(key_func=get_remote_address)\n\n@app.post("/api/auth/login")\n@limiter.limit("5/minute")  # ✅ max 5 login attempts per minute\nasync def login(request: Request, credentials: LoginRequest):\n    ...\n\`\`\`\n\n**Account lockout after failed attempts:**\n\`\`\`python\nif failed_attempts >= 5:\n    lockout_until = datetime.utcnow() + timedelta(minutes=15)\n\`\`\``;
+
+      } else if (lower.includes("header") || lower.includes("security header") || lower.includes("hsts") || lower.includes("csp")) {
+        reply += `**Security Headers Hardening**\n\nAdd these headers to every HTTP response:\n\n\`\`\`python\n# FastAPI middleware\nfrom fastapi import Request\nfrom fastapi.responses import Response\n\n@app.middleware("http")\nasync def security_headers(request: Request, call_next):\n    response: Response = await call_next(request)\n    response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains; preload"\n    response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self'; object-src 'none'"\n    response.headers["X-Content-Type-Options"] = "nosniff"\n    response.headers["X-Frame-Options"] = "DENY"\n    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"\n    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"\n    return response\n\`\`\``;
+
+      } else if (lower.includes("depend") || lower.includes("cve") || lower.includes("vulnerability scan") || lower.includes("supply chain")) {
+        reply += `**Dependency & Supply Chain Security**\n\n\`\`\`bash\n# Python — audit for known CVEs\npip install pip-audit\npip-audit\n\n# Node.js — built-in audit\nnpm audit\nnpm audit fix\n\n# Auto-fix with Dependabot (GitHub Actions)\n# .github/dependabot.yml\nversion: 2\nupdates:\n  - package-ecosystem: "pip"\n    directory: "/"\n    schedule:\n      interval: "weekly"\n\`\`\`\n\n**Pin dependency versions in production:**\n\`\`\`bash\npip freeze > requirements.txt  # lock exact versions\n\`\`\``;
+
       } else {
-        reply += `**Security Recommendation on:** *"${message}"*\n\n1. **Defense in Depth**: Combine client-side and server-side validation with parameterized queries.\n2. **Least Privilege**: Grant minimal necessary permissions to users and service accounts.\n3. **Sanitization & Escaping**: Encode outputs context-specifically for HTML, SQL, and CLI interpreters.\n\n> 💡 **Tip:** To activate live cloud model reasoning, configure your **${cleanProv.toUpperCase()} API Key** in Settings or using the key editor button above.`;
+        // Generic but rich security response — no more "configure your key" tip
+        reply += `**Security Analysis: *"${message}"***\n\n`;
+        reply += `**Recommended Secure Design Principles:**\n\n`;
+        reply += `1. **🛡️ Defense in Depth** — Layer security controls: input validation → parameterized queries → output encoding → WAF\n`;
+        reply += `2. **🔐 Least Privilege** — Grant only the minimum permissions needed; never run services as root\n`;
+        reply += `3. **🧹 Input Validation & Sanitization** — Validate type, length, format, and range on ALL inputs before processing\n`;
+        reply += `4. **📋 Output Encoding** — Encode context-specifically: HTML entities for web, parameterized for SQL, shell-escaped for CLI\n`;
+        reply += `5. **🔍 Security Logging** — Log all authentication events, failures, and anomalies with timestamps and IPs\n`;
+        reply += `6. **🔄 Patch Management** — Regularly audit and update all dependencies; use \`npm audit\` / \`pip-audit\`\n\n`;
+        reply += `**Quick pattern to ask about:**\n`;
+        reply += `→ Try: *"How do I fix SQL injection?"*, *"Harden CORS headers"*, *"Prevent XSS in React"*, *"OWASP Top 10 checklist"*`;
       }
 
       return {
@@ -585,6 +691,7 @@ export const api = {
       };
     }
   },
+
 
   async updateVulnerabilityStatus(vulnId: number, status: string): Promise<Vulnerability> {
     try {
@@ -1341,7 +1448,14 @@ export const api = {
     if (settings.grok_api_key && settings.grok_api_key.trim()) localKeys.grok = true;
     if (settings.groq_api_key && settings.groq_api_key.trim()) localKeys.groq = true;
 
+    // Also persist the actual key values for direct browser → OpenRouter calls
     try {
+      if (settings.openrouter_api_key?.trim()) localStorage.setItem("openrouter_api_key", settings.openrouter_api_key.trim());
+      if (settings.openai_api_key?.trim()) localStorage.setItem("openai_api_key", settings.openai_api_key.trim());
+      if (settings.gemini_api_key?.trim()) localStorage.setItem("gemini_api_key", settings.gemini_api_key.trim());
+      if (settings.claude_api_key?.trim()) localStorage.setItem("claude_api_key", settings.claude_api_key.trim());
+      if (settings.grok_api_key?.trim()) localStorage.setItem("grok_api_key", settings.grok_api_key.trim());
+      if (settings.groq_api_key?.trim()) localStorage.setItem("groq_api_key", settings.groq_api_key.trim());
       localStorage.setItem("ai_bug_hunter_keys", JSON.stringify(localKeys));
     } catch {}
 

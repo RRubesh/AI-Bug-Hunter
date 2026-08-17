@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { api } from "../services/api";
 import type { ScanStats, Project, DashboardSummary } from "../services/api";
+import { loadStoredData } from "../utils/browserScanner";
 import { MetricCard } from "../components/ui/MetricCard";
 import { GlassCard } from "../components/ui/GlassCard";
 import { StatusBadge } from "../components/ui/StatusBadge";
@@ -41,19 +42,29 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   useEffect(() => {
     let active = true;
-    Promise.all([api.getDashboardSummary().catch(() => null), api.getDashboardStats(), api.getProjects()])
+    Promise.all([
+      api.getDashboardSummary().catch(() => null),
+      api.getDashboardStats().catch(() => null),
+      api.getProjects().catch(() => [])
+    ])
       .then(([summaryData, statsData, projectsData]) => {
-        if (active) {
-          setSummary(summaryData);
-          setStats(statsData);
-          setProjects(projectsData);
+        if (!active) return;
+        let projs = Array.isArray(projectsData) ? projectsData : [];
+        if (projs.length === 0) {
+          const seeds = loadStoredData();
+          projs = Object.values(seeds).map((s) => s.project);
         }
+        setSummary(summaryData);
+        setStats(statsData);
+        setProjects(projs);
       })
       .catch((err: unknown) => {
-        if (active) {
-          const errMsg = err instanceof Error ? err.message : "Failed to load dashboard data.";
-          setError(errMsg);
-        }
+        if (!active) return;
+        const errMsg = err instanceof Error ? err.message : "Failed to load dashboard data.";
+        setError(errMsg);
+        const seeds = loadStoredData();
+        const projs = Object.values(seeds).map((s) => s.project);
+        setProjects(projs);
       })
       .finally(() => {
         if (active) setLoading(false);

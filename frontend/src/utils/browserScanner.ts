@@ -9,6 +9,8 @@ export interface StoredProjectData {
 }
 
 const STORAGE_KEY = "ai_bug_hunter_local_storage_v1";
+const STORAGE_VERSION_KEY = "ai_bug_hunter_storage_version";
+const STORAGE_VERSION = "2"; // Increment this to force a reset of old corrupted data
 
 export function getDefaultSeedProjects(): Record<number, StoredProjectData> {
   const p1_id = 82;
@@ -38,10 +40,10 @@ export function getDefaultSeedProjects(): Record<number, StoredProjectData> {
     low_count: 0,
     created_at: "2026-08-16T15:16:20.000Z",
     finished_at: "2026-08-16T15:16:45.000Z",
-    project: p1,
+    // No circular project reference here - set after
   };
-  p1.latest_scan = s1;
-  p1.scans = [s1];
+  p1.latest_scan = { ...s1 }; // shallow clone prevents circular ref
+  p1.scans = [{ ...s1 }];
 
   const vulns1: Vulnerability[] = [
     {
@@ -105,10 +107,10 @@ export function getDefaultSeedProjects(): Record<number, StoredProjectData> {
     low_count: 0,
     created_at: "2026-08-16T14:40:10.000Z",
     finished_at: "2026-08-16T14:40:35.000Z",
-    project: p2,
+    // No circular project reference here
   };
-  p2.latest_scan = s2;
-  p2.scans = [s2];
+  p2.latest_scan = { ...s2 };
+  p2.scans = [{ ...s2 }];
 
   const vulns2: Vulnerability[] = [
     {
@@ -188,10 +190,10 @@ export function getDefaultSeedProjects(): Record<number, StoredProjectData> {
     low_count: 0,
     created_at: "2026-08-16T13:10:00.000Z",
     finished_at: "2026-08-16T13:10:20.000Z",
-    project: p3,
+    // No circular project reference
   };
-  p3.latest_scan = s3;
-  p3.scans = [s3];
+  p3.latest_scan = { ...s3 };
+  p3.scans = [{ ...s3 }];
 
   return {
     [p1_id]: {
@@ -217,11 +219,23 @@ export function getDefaultSeedProjects(): Record<number, StoredProjectData> {
 
 export function loadStoredData(): Record<number, StoredProjectData> {
   try {
+    // Check if we need to reset due to storage version change
+    const storedVersion = localStorage.getItem(STORAGE_VERSION_KEY);
+    if (storedVersion !== STORAGE_VERSION) {
+      // Clear old potentially corrupted data
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.setItem(STORAGE_VERSION_KEY, STORAGE_VERSION);
+    }
+
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (parsed && Object.keys(parsed).length > 0) {
-        return parsed;
+      if (parsed && typeof parsed === "object" && Object.keys(parsed).length > 0) {
+        // Verify the parsed data looks valid (has projects with ids)
+        const firstKey = Object.keys(parsed)[0];
+        if (parsed[firstKey]?.project?.id) {
+          return parsed;
+        }
       }
     }
     // Initialize default seed scans
@@ -230,7 +244,28 @@ export function loadStoredData(): Record<number, StoredProjectData> {
     return seeds;
   } catch (err) {
     console.error("Failed to parse local storage data:", err);
-    return getDefaultSeedProjects();
+    const seeds = getDefaultSeedProjects();
+    // Try to save clean seeds
+    try {
+      const clean = JSON.parse(JSON.stringify(seeds, (_key, value) => {
+        if (value && typeof value === 'object' && value !== null) {
+          const clone = { ...value };
+          // Remove circular scan->project->scan refs
+          if ('project' in clone && clone.project && 'latest_scan' in clone.project) {
+            const p = clone.project;
+            clone.project = { id: p.id, name: p.name, description: p.description,
+              upload_type: p.upload_type, file_path: p.file_path, language_detected: p.language_detected,
+              owner_id: p.owner_id, owner_username: p.owner_username, created_at: p.created_at, updated_at: p.updated_at };
+          }
+          return clone;
+        }
+        return value;
+      }));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(clean));
+    } catch {
+      // ignore
+    }
+    return seeds;
   }
 }
 

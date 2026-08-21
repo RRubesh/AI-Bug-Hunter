@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { api } from "../services/api";
 import type { ScanStats, Project, DashboardSummary } from "../services/api";
-import { loadStoredData } from "../utils/browserScanner";
 import { MetricCard } from "../components/ui/MetricCard";
 import { GlassCard } from "../components/ui/GlassCard";
 import { StatusBadge } from "../components/ui/StatusBadge";

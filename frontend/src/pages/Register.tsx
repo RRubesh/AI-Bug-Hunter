@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { api } from "../services/api";
 import logo from "../assets/logo.jpg";
-import { Lock, User, Mail, AlertCircle, CheckCircle2, Eye, EyeOff, UserPlus, ShieldCheck } from "lucide-react";
+import { Lock, User, Mail, AlertCircle, CheckCircle2, Eye, EyeOff, UserPlus } from "lucide-react";
 import { GlassCard } from "../components/ui/GlassCard";
 import { Button } from "../components/ui/Button";
 

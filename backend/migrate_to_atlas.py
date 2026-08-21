@@ -89,8 +89,9 @@ def migrate_to_atlas(target_uri: str = None, target_db_name: str = "aibughunter"
                 "_id": u.id,
                 "id": u.id,
                 "username": u.username,
+                "email": getattr(u, "email", None) or f"{u.username}@aibughunter.local",
                 "hashed_password": u.hashed_password,
-                "role": u.role or "developer",
+                "role": "admin" if u.role == "admin" else "user",
                 "created_at": u.created_at or datetime.datetime.now()
             } for u in users]
             for doc in user_docs:

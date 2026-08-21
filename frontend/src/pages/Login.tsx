@@ -92,7 +92,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateToRegist
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5 font-mono">
-                Username
+                Username or Email
               </label>
               <div className="relative">
                 <User className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5 pointer-events-none" />
@@ -101,7 +101,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateToRegist
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   className="w-full pl-10 pr-4 py-3 glass-input rounded-xl text-sm focus:outline-none placeholder-slate-600"
-                  placeholder="developer"
+                  placeholder="e.g. auditor@company.com or username"
                   required
                 />
               </div>

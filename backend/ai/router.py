@@ -9,11 +9,11 @@ from typing import List, Optional
 
 router = APIRouter(prefix="/ai", tags=["AI Security Assistant"])
 
-def get_current_active_paid_or_admin(current_user: User = Depends(get_current_user)) -> User:
-    if current_user.role not in ("admin", "paid", "developer", "user", "member"):
+def get_current_active_user_or_admin(current_user: User = Depends(get_current_user)) -> User:
+    if current_user.role not in ("admin", "user"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="AI features are only available to authenticated accounts."
+            detail="AI features are only available to authenticated users."
         )
     return current_user
 
@@ -22,7 +22,7 @@ def get_current_active_paid_or_admin(current_user: User = Depends(get_current_us
 async def chat_about_scan(
     query: ChatQuery,
     scan_id: Optional[int] = None,
-    current_user: User = Depends(get_current_active_paid_or_admin),
+    current_user: User = Depends(get_current_active_user_or_admin),
     db: Session = Depends(get_db)
 ):
     code_context = ""
@@ -30,19 +30,22 @@ async def chat_about_scan(
     
     if scan_id and scan_id > 0:
         scan = db.query(Scan).filter(Scan.id == scan_id).first()
-        if scan:
-            if scan.project.owner_id == current_user.id or current_user.role == "admin":
-                valid_scan_id = scan.id
-                if query.vulnerability_id:
-                    vuln = db.query(Vulnerability).filter(Vulnerability.id == query.vulnerability_id).first()
-                    if vuln and vuln.scan_id == scan.id:
-                        code_context = (
-                            f"File: {vuln.file_path}\n"
-                            f"Severity: {vuln.severity}\n"
-                            f"Category: {vuln.category}\n"
-                            f"Message: {vuln.message}\n"
-                            f"Snippet:\n{vuln.code_snippet or ''}"
-                        )
+        if not scan:
+            raise HTTPException(status_code=404, detail="Scan session not found")
+        owner_id = scan.project.owner_id if scan.project else None
+        if owner_id != current_user.id and current_user.role != "admin":
+            raise HTTPException(status_code=403, detail="Not authorized to access this scan")
+        valid_scan_id = scan.id
+        if query.vulnerability_id:
+            vuln = db.query(Vulnerability).filter(Vulnerability.id == query.vulnerability_id).first()
+            if vuln and vuln.scan_id == scan.id:
+                code_context = (
+                    f"File: {vuln.file_path}\n"
+                    f"Severity: {vuln.severity}\n"
+                    f"Category: {vuln.category}\n"
+                    f"Message: {vuln.message}\n"
+                    f"Snippet:\n{vuln.code_snippet or ''}"
+                )
 
     # Save User message
     user_msg = ChatMessage(
@@ -115,25 +118,32 @@ async def chat_about_scan(
 @router.get("/chat/{scan_id}", response_model=List[ChatMessageResponse])
 def get_chat_history(
     scan_id: Optional[int] = None,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user_or_admin),
     db: Session = Depends(get_db)
 ):
     if scan_id and scan_id > 0:
+        scan = db.query(Scan).filter(Scan.id == scan_id).first()
+        if not scan:
+            raise HTTPException(status_code=404, detail="Scan not found")
+        owner_id = scan.project.owner_id if scan.project else None
+        if owner_id != current_user.id and current_user.role != "admin":
+            raise HTTPException(status_code=403, detail="Not authorized to access this scan chat history")
         return db.query(ChatMessage).filter(ChatMessage.scan_id == scan_id).order_by(ChatMessage.created_at.asc()).all()
     return db.query(ChatMessage).filter(ChatMessage.user_id == current_user.id, ChatMessage.scan_id == None).order_by(ChatMessage.created_at.asc()).all()
 
 @router.post("/enrich/{vulnerability_id}", response_model=VulnerabilityDetail)
 async def enrich_vulnerability(
     vulnerability_id: int,
-    current_user: User = Depends(get_current_active_paid_or_admin),
+    current_user: User = Depends(get_current_active_user_or_admin),
     db: Session = Depends(get_db)
 ):
     vuln = db.query(Vulnerability).filter(Vulnerability.id == vulnerability_id).first()
     if not vuln:
         raise HTTPException(status_code=404, detail="Vulnerability not found")
         
-    # Check authorization
-    if vuln.scan.project.owner_id != current_user.id and current_user.role != "admin":
+    # Check authorization safely
+    owner_id = vuln.scan.project.owner_id if (vuln.scan and vuln.scan.project) else None
+    if owner_id != current_user.id and current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Not authorized to access this scan")
         
     # If already enriched, just return it

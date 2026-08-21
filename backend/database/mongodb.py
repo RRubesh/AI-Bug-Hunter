@@ -78,8 +78,9 @@ class MongoDBManager:
             return
 
         try:
-            # 1. users: unique index on username
+            # 1. users: unique indexes on username and email
             self.db.users.create_index([("username", ASCENDING)], unique=True)
+            self.db.users.create_index([("email", ASCENDING)], sparse=True)
 
             # 2. projects: index on user_id
             self.db.projects.create_index([("user_id", ASCENDING)])
@@ -118,7 +119,20 @@ class MongoDBManager:
             self.db.security_events.create_index([("event_type", ASCENDING)])
             self.db.security_events.create_index([("created_at", DESCENDING)])
 
-            print("[MongoDB Atlas]: Collection indexes initialized.")
+            # 10. system_settings: index on updated_at
+            self.db.system_settings.create_index([("updated_at", DESCENDING)])
+
+            # 11. password_reset_tokens: index on token_hash, expires_at
+            self.db.password_reset_tokens.create_index([("token_hash", ASCENDING)])
+            self.db.password_reset_tokens.create_index([("expires_at", ASCENDING)])
+
+            # Migrate legacy roles (developer, paid) to user
+            self.db.users.update_many(
+                {"role": {"$in": ["developer", "paid", "free"]}},
+                {"$set": {"role": "user"}}
+            )
+
+            print("[MongoDB Atlas]: Collection indexes initialized and legacy roles migrated.")
         except Exception as e:
             print(f"[MongoDB Atlas Warning]: Index initialization failed: {str(e)}")
 
@@ -138,6 +152,35 @@ class MongoDBManager:
             self.db.security_events.insert_one(event_doc)
         except Exception as e:
             print(f"[MongoDB Security Event Notice]: {str(e)}")
+
+    def get_security_events(self, limit: int = 50) -> List[Dict[str, Any]]:
+        """Retrieve sanitized security audit logs for administrators."""
+        if not self.is_connected() or self.db is None:
+            return []
+        try:
+            cursor = self.db.security_events.find({}, {"_id": 0}).sort("created_at", DESCENDING).limit(limit)
+            return list(cursor)
+        except Exception as e:
+            print(f"[MongoDB Audit Log Retrieval Notice]: {str(e)}")
+            return []
+
+    def sync_system_settings(self, settings_dict: Dict[str, Any]):
+        """Persist platform and AI settings snapshot to MongoDB Atlas system_settings collection."""
+        if not self.is_connected() or self.db is None:
+            return
+        try:
+            doc = {
+                "config_key": "global_settings",
+                "settings": settings_dict,
+                "updated_at": utcnow()
+            }
+            self.db.system_settings.update_one(
+                {"config_key": "global_settings"},
+                {"$set": doc},
+                upsert=True
+            )
+        except Exception as e:
+            print(f"[MongoDB System Settings Notice]: {str(e)}")
 
 # Singleton instance
 mongo_manager = MongoDBManager()

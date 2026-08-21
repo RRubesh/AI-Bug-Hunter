@@ -2,6 +2,7 @@ import os
 import shutil
 import uuid
 import subprocess
+import datetime
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status, BackgroundTasks
 from fastapi.responses import FileResponse, JSONResponse, Response
 from sqlalchemy.orm import Session
@@ -11,7 +12,8 @@ from backend.models import Project, Scan, Vulnerability, User
 from backend.schemas import (
     ProjectResponse, ProjectCreate, ScanResponse, VulnerabilityResponse, 
     VulnerabilityDetail, VulnerabilityUpdate, ScanStats, SeverityStats, 
-    DashboardSummary, AppSettings, UserResponse, UserCreate, SettingsUpdate
+    DashboardSummary, AppSettings, UserResponse, UserCreate, SettingsUpdate,
+    AdminUserCreate, AdminRoleUpdate, SecurityEventResponse
 )
 from backend.auth.jwt import get_current_user, get_current_admin, get_password_hash
 from backend.config import settings
@@ -22,7 +24,66 @@ from backend.ai.openrouter_client import openrouter_client, ollama_client
 from typing import List, Optional
 from pathlib import Path
 
+def utcnow():
+    return datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+
 router = APIRouter(prefix="/api", tags=["Code Security Scans"])
+
+# --- SECURITY VALIDATORS ---
+
+def is_safe_ip(ip_str: str) -> bool:
+    import ipaddress
+    try:
+        ip = ipaddress.ip_address(ip_str)
+        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_multicast or ip.is_reserved or ip.is_unspecified:
+            return False
+        if str(ip) in ("169.254.169.254", "fd00:ec2::254"):
+            return False
+        return True
+    except ValueError:
+        return False
+
+def validate_safe_web_url(url: str) -> str:
+    from urllib.parse import urlparse
+    import socket
+    cleaned = (url or "").strip()
+    if not (cleaned.startswith("http://") or cleaned.startswith("https://")):
+        raise HTTPException(status_code=400, detail="Invalid URL format. Must start with http:// or https://")
+    parsed = urlparse(cleaned)
+    hostname = parsed.hostname
+    if not hostname:
+        raise HTTPException(status_code=400, detail="Invalid URL hostname")
+    
+    blocked_hosts = {"localhost", "127.0.0.1", "0.0.0.0", "::1", "metadata.google.internal", "instance-data"}
+    if hostname.lower() in blocked_hosts or hostname.endswith(".local") or hostname.endswith(".internal"):
+        raise HTTPException(status_code=400, detail="Access to internal/metadata endpoints is prohibited for security reasons.")
+    
+    try:
+        addr_info = socket.getaddrinfo(hostname, None)
+        for entry in addr_info:
+            ip = entry[4][0]
+            if not is_safe_ip(ip):
+                raise HTTPException(status_code=400, detail=f"Access to private/local network address ({ip}) is prohibited.")
+    except socket.gaierror:
+        pass
+    except HTTPException:
+        raise
+    except Exception:
+        pass
+    return cleaned
+
+def validate_safe_git_url(url: str) -> str:
+    cleaned = (url or "").strip()
+    if not cleaned:
+        raise HTTPException(status_code=400, detail="Git Repository URL is required")
+    if cleaned.startswith("-") or cleaned.startswith("--"):
+        raise HTTPException(status_code=400, detail="Invalid Git URL format: starts with dash flag")
+    
+    valid_prefixes = ("https://", "http://", "git://", "ssh://", "git@")
+    if not any(cleaned.startswith(p) for p in valid_prefixes):
+        raise HTTPException(status_code=400, detail="Invalid Git URL. Must start with https://, http://, git://, ssh://, or git@")
+    
+    return cleaned
 
 # --- PROJECT MANAGEMENT ---
 
@@ -130,11 +191,10 @@ def create_project(
 
     # 3. Handle Git Repository
     elif upload_type == "git":
-        if not git_url:
-            raise HTTPException(status_code=400, detail="Git Repository URL is required")
+        validated_git_url = validate_safe_git_url(git_url)
         try:
-            # Execute git clone
-            cmd = ["git", "clone", "--depth", "1", git_url, str(project_dir)]
+            # Execute git clone with '--' delimiter to prevent command option injection
+            cmd = ["git", "clone", "--depth", "1", "--", validated_git_url, str(project_dir)]
             res = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
             if res.returncode != 0:
                 raise Exception(res.stderr)
@@ -144,10 +204,7 @@ def create_project(
 
     # 4. Handle Website/URL Link Ingestion
     elif upload_type == "url":
-        if not git_url:
-            raise HTTPException(status_code=400, detail="Website/URL link is required")
-        if not (git_url.startswith("http://") or git_url.startswith("https://")):
-            raise HTTPException(status_code=400, detail="Invalid URL format. Must start with http:// or https://")
+        validated_web_url = validate_safe_web_url(git_url)
         
         try:
             import httpx
@@ -163,7 +220,7 @@ def create_project(
             try:
                 # 1. Try fetching with httpx
                 with httpx.Client(follow_redirects=True, timeout=30.0) as client:
-                    response = client.get(git_url, headers=headers)
+                    response = client.get(validated_web_url, headers=headers)
                     if response.status_code == 200:
                         content = response.content
                         content_type = response.headers.get("content-type", "").lower()
@@ -181,10 +238,12 @@ def create_project(
                         cmd = [
                             "curl",
                             "-sL",
+                            "--max-time", "30",
                             "-A", headers["User-Agent"],
                             "-D", str(hdr_file),
                             "-o", str(out_file),
-                            git_url
+                            "--",
+                            validated_web_url
                         ]
                         subprocess.run(cmd, capture_output=True, text=True, timeout=30.0)
                         
@@ -196,8 +255,8 @@ def create_project(
                                 with open(hdr_file, "r", encoding="utf-8", errors="ignore") as f:
                                     for line in f:
                                         if line.lower().startswith("content-type:"):
-                                            content_type = line.split(":", 1)[1].strip().lower()
-                                            break
+                                             content_type = line.split(":", 1)[1].strip().lower()
+                                             break
                         else:
                             raise Exception(f"curl download failed: {httpx_err}")
                 except Exception as curl_err:
@@ -540,6 +599,19 @@ def get_project_file_content(project_id: int, path: str, current_user: User = De
 
     if not target_file or not target_file.exists() or not target_file.is_file():
         raise HTTPException(status_code=404, detail=f"File '{path}' not found in project")
+
+    # Strict path traversal security check
+    target_resolved = target_file.resolve()
+    boundary_dir = base_path if base_path.is_dir() else base_path.parent
+    boundary_resolved = boundary_dir.resolve()
+    
+    try:
+        if not target_resolved.is_relative_to(boundary_resolved):
+            raise HTTPException(status_code=403, detail="Path traversal attempt blocked.")
+    except AttributeError:
+        # Fallback for Python < 3.9
+        if not str(target_resolved).startswith(str(boundary_resolved)):
+            raise HTTPException(status_code=403, detail="Path traversal attempt blocked.")
          
     try:
         with open(target_file, "r", encoding="utf-8", errors="ignore") as f:
@@ -853,6 +925,22 @@ def save_settings_to_env(
         except Exception:
             pass
 
+    # Sync settings snapshot to MongoDB Atlas system_settings collection
+    try:
+        mongo_manager.sync_system_settings({
+            "openrouter_api_url": settings.OPENROUTER_API_BASE_URL,
+            "default_model": settings.DEFAULT_LLM_MODEL,
+            "ai_provider": settings.AI_PROVIDER,
+            "openrouter_configured": bool(settings.OPENROUTER_API_KEY),
+            "openai_configured": bool(settings.OPENAI_API_KEY),
+            "gemini_configured": bool(settings.GEMINI_API_KEY),
+            "groq_configured": bool(settings.GROQ_API_KEY),
+            "claude_configured": bool(settings.CLAUDE_API_KEY),
+            "grok_configured": bool(settings.GROK_API_KEY),
+        })
+    except Exception:
+        pass
+
 @router.post("/settings", response_model=AppSettings)
 async def update_settings(
     settings_in: SettingsUpdate,
@@ -910,44 +998,111 @@ def admin_list_users(current_admin: User = Depends(get_current_admin), db: Sessi
 @router.post("/admin/users/{user_id}/role")
 def admin_update_role(
     user_id: int, 
-    role: str, 
+    role_in: AdminRoleUpdate, 
     current_admin: User = Depends(get_current_admin), 
     db: Session = Depends(get_db)
 ):
-    if role not in ("admin", "developer"):
-        raise HTTPException(status_code=400, detail="Invalid role type")
+    clean_role = (role_in.role or "").strip().lower()
+    if clean_role not in ("admin", "user"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="Invalid role type. Allowed roles are 'user' and 'admin'."
+        )
         
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail="User account not found")
+
+    if user.id == current_admin.id and clean_role != "admin":
+        admin_count = db.query(User).filter(User.role == "admin").count()
+        if admin_count <= 1:
+            raise HTTPException(status_code=400, detail="Cannot demote the sole administrator account.")
         
-    user.role = role
+    old_role = user.role
+    user.role = clean_role
     db.commit()
-    return {"message": f"User role updated to {role}"}
+
+    try:
+        if is_mongo_connected():
+            mongo_db = get_mongo_db()
+            if mongo_db is not None:
+                mongo_db.users.update_one({"username": user.username}, {"$set": {"role": clean_role}})
+    except Exception:
+        pass
+
+    mongo_manager.log_security_event(
+        event_type="admin_role_changed",
+        description=f"Admin {current_admin.username} updated role of user {user.username} from {old_role} to {clean_role}",
+        user_id=current_admin.id
+    )
+
+    return {"message": f"User role updated to {clean_role}"}
 
 @router.post("/admin/users", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 def admin_create_user(
-    user_in: UserCreate,
-    role: str = "developer",
+    user_in: AdminUserCreate,
     current_admin: User = Depends(get_current_admin),
     db: Session = Depends(get_db)
 ):
-    if role not in ("admin", "developer"):
-        raise HTTPException(status_code=400, detail="Invalid role type")
+    clean_role = (user_in.role or "user").strip().lower()
+    if clean_role not in ("admin", "user"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="Invalid role type. Allowed roles are 'user' and 'admin'."
+        )
+
+    clean_username = (user_in.username or "").strip()
+    clean_email = (user_in.email or "").strip().lower()
+
+    if not clean_username or not clean_email or not user_in.password:
+        raise HTTPException(status_code=400, detail="Username, email, and password are required.")
         
-    existing_user = db.query(User).filter(User.username == user_in.username).first()
+    existing_user = db.query(User).filter(
+        (User.username == clean_username) | (User.email == clean_email)
+    ).first()
     if existing_user:
-        raise HTTPException(status_code=400, detail="Username already registered")
+        raise HTTPException(status_code=400, detail="Username or email is already registered.")
         
     hashed_password = get_password_hash(user_in.password)
+    now = utcnow()
     new_user = User(
-        username=user_in.username,
+        username=clean_username,
+        email=clean_email,
         hashed_password=hashed_password,
-        role=role
+        role=clean_role
     )
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
+
+    try:
+        if is_mongo_connected():
+            mongo_db = get_mongo_db()
+            if mongo_db is not None:
+                mongo_db.users.update_one(
+                    {"username": new_user.username},
+                    {"$set": {
+                        "user_id": new_user.id,
+                        "username": new_user.username,
+                        "email": new_user.email,
+                        "password_hash": hashed_password,
+                        "role": new_user.role,
+                        "is_active": True,
+                        "created_at": new_user.created_at or now,
+                        "updated_at": now,
+                        "last_login": None
+                    }},
+                    upsert=True
+                )
+    except Exception:
+        pass
+
+    mongo_manager.log_security_event(
+        event_type="admin_user_created",
+        description=f"Admin {current_admin.username} created user {new_user.username} ({new_user.email}) with role {new_user.role}",
+        user_id=current_admin.id
+    )
+
     return new_user
 
 @router.delete("/admin/users/{user_id}")
@@ -958,11 +1113,35 @@ def admin_delete_user(
 ):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail="User account not found")
     if user.id == current_admin.id:
-        raise HTTPException(status_code=400, detail="Cannot delete your own admin account")
+        raise HTTPException(status_code=400, detail="Cannot delete your own administrator account.")
         
+    deleted_username = user.username
     db.delete(user)
     db.commit()
-    return {"message": "User deleted successfully"}
+
+    try:
+        if is_mongo_connected():
+            mongo_db = get_mongo_db()
+            if mongo_db is not None:
+                mongo_db.users.delete_one({"username": deleted_username})
+    except Exception:
+        pass
+
+    mongo_manager.log_security_event(
+        event_type="admin_user_deleted",
+        description=f"Admin {current_admin.username} deleted user account {deleted_username}",
+        user_id=current_admin.id
+    )
+
+    return {"message": "User account deleted successfully"}
+
+@router.get("/admin/audit-logs")
+def admin_get_audit_logs(
+    limit: int = 50,
+    current_admin: User = Depends(get_current_admin)
+):
+    events = mongo_manager.get_security_events(limit=min(limit, 100))
+    return {"events": events}
 

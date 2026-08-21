@@ -5,11 +5,13 @@ from datetime import datetime
 # --- User Schemas ---
 class UserBase(BaseModel):
     username: str
+    email: str
 
 class UserCreate(UserBase):
     password: str
 
-class UserLogin(UserBase):
+class UserLogin(BaseModel):
+    username: str  # Can be username or email
     password: str
 
 class UserResponse(UserBase):
@@ -24,10 +26,29 @@ class Token(BaseModel):
     token_type: str
     role: str
     username: str
+    email: Optional[str] = None
 
 class TokenData(BaseModel):
     username: Optional[str] = None
+    email: Optional[str] = None
     role: Optional[str] = None
+    user_id: Optional[int] = None
+
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
+
+class AdminUserCreate(BaseModel):
+    username: str
+    email: str
+    password: str
+    role: str = "user"
+
+class AdminRoleUpdate(BaseModel):
+    role: str
 
 # --- Project Schemas ---
 class ProjectBase(BaseModel):
@@ -63,11 +84,8 @@ class ScanResponse(BaseModel):
     low_count: int = 0
     created_at: datetime
     finished_at: Optional[datetime] = None
-    project: Optional[ProjectResponse] = None
 
     model_config = ConfigDict(from_attributes=True)
-
-ProjectResponse.model_rebuild()
 
 # --- Vulnerability Schemas ---
 class VulnerabilityResponse(BaseModel):

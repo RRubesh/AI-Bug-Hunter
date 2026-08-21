@@ -9,6 +9,7 @@ import {
 export interface User {
   id: number;
   username: string;
+  email: string;
   role: string;
   created_at: string;
 }
@@ -120,7 +121,8 @@ export const getApiBaseUrl = (): string => {
   if (custom && custom.trim()) {
     return custom.trim().replace(/\/$/, "");
   }
-  return (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
+  const envUrl = (import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || "").trim();
+  return envUrl.replace(/\/$/, "");
 };
 
 export const setApiBaseUrl = (url: string) => {
@@ -203,12 +205,12 @@ const getHeaders = (multipart = false) => {
 
 export const api = {
   // --- AUTHENTICATION ---
-  async register(username: string, password: string): Promise<User> {
+  async register(username: string, email: string, password: string): Promise<User> {
     try {
       const res = await fetch(getApiUrl("/api/auth/register"), {
         method: "POST",
         headers: getHeaders(),
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username, email, password }),
       });
       return await safeJson(res);
     } catch (err: unknown) {
@@ -219,19 +221,36 @@ export const api = {
       const user: User = {
         id: Date.now(),
         username,
-        role: "developer",
+        email,
+        role: "user",
         created_at: new Date().toISOString(),
       };
       return user;
     }
   },
 
-  async forgotPassword(username: string, recoveryKey: string, newPassword: string): Promise<{ message: string }> {
+  async forgotPassword(email: string): Promise<{ message: string; dev_token?: string }> {
     try {
       const res = await fetch(getApiUrl("/api/auth/forgot-password"), {
         method: "POST",
         headers: getHeaders(),
-        body: JSON.stringify({ username, recovery_key: recoveryKey, new_password: newPassword }),
+        body: JSON.stringify({ email }),
+      });
+      return await safeJson(res);
+    } catch (err: unknown) {
+      if (err instanceof Error && err.message !== "HTML_FALLBACK_TRIGGERED" && !err.message.includes("Failed to fetch")) {
+        throw err;
+      }
+      return { message: "If an account exists for this email, a password reset link has been sent." };
+    }
+  },
+
+  async resetPassword(token: string, newPassword: string): Promise<{ message: string }> {
+    try {
+      const res = await fetch(getApiUrl("/api/auth/reset-password"), {
+        method: "POST",
+        headers: getHeaders(),
+        body: JSON.stringify({ token, new_password: newPassword }),
       });
       return await safeJson(res);
     } catch (err: unknown) {
@@ -242,7 +261,7 @@ export const api = {
     }
   },
 
-  async login(username: string, password: string): Promise<{ access_token: string, role: string, username: string }> {
+  async login(username: string, password: string): Promise<{ access_token: string; role: string; username: string; email?: string }> {
     try {
       const formData = new URLSearchParams();
       formData.append("username", username);
@@ -259,6 +278,7 @@ export const api = {
       localStorage.setItem("token", data.access_token);
       localStorage.setItem("role", data.role);
       localStorage.setItem("username", data.username);
+      if (data.email) localStorage.setItem("email", data.email);
       return data;
     } catch (err: unknown) {
       if (err instanceof Error && err.message !== "HTML_FALLBACK_TRIGGERED" && !err.message.includes("Failed to fetch")) {
@@ -266,14 +286,16 @@ export const api = {
       }
       // In-browser authentication fallback
       const token = `local_token_${Date.now()}`;
-      const role = username.toLowerCase().includes("admin") ? "admin" : "developer";
+      const role = username.toLowerCase().includes("admin") ? "admin" : "user";
       localStorage.setItem("token", token);
       localStorage.setItem("role", role);
       localStorage.setItem("username", username);
+      localStorage.setItem("email", `${username}@aibughunter.local`);
       return {
         access_token: token,
         role,
         username,
+        email: `${username}@aibughunter.local`,
       };
     }
   },
@@ -282,6 +304,7 @@ export const api = {
     localStorage.removeItem("token");
     localStorage.removeItem("role");
     localStorage.removeItem("username");
+    localStorage.removeItem("email");
   },
 
   async getMe(): Promise<User> {
@@ -291,11 +314,13 @@ export const api = {
       });
       return await safeJson(res);
     } catch {
-      const username = localStorage.getItem("username") || "developer";
-      const role = localStorage.getItem("role") || "developer";
+      const username = localStorage.getItem("username") || "user";
+      const email = localStorage.getItem("email") || `${username}@aibughunter.local`;
+      const role = localStorage.getItem("role") || "user";
       return {
         id: 1,
         username,
+        email,
         role,
         created_at: new Date().toISOString(),
       };
@@ -304,36 +329,32 @@ export const api = {
 
   // --- PROJECTS ---
   async getProjects(): Promise<Project[]> {
-    let backendProjects: Project[] = [];
     try {
       const res = await fetch(getApiUrl("/api/projects"), {
         headers: getHeaders(),
       });
-      backendProjects = await safeJson(res);
+      const backendProjects: Project[] = await safeJson(res);
+      if (Array.isArray(backendProjects)) {
+        for (const p of backendProjects) {
+          if (!p.latest_scan && p.scans && p.scans.length > 0) {
+            p.latest_scan = p.scans[0];
+          }
+        }
+        return backendProjects.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      }
     } catch {
-      // Backend not available or returned HTML
+      // Backend not available or returned HTML -> fallback to local browser storage
     }
 
-    // Combine with stored local projects
+    // In-browser fallback mode when backend request failed
     const stored = loadStoredData();
     const localProjects = Object.values(stored).map((item) => item.project);
-    
-    // De-duplicate by ID and ensure latest_scan is populated
-    const projectMap = new Map<number, Project>();
-    for (const p of backendProjects) {
-      if (!p.latest_scan && p.scans && p.scans.length > 0) {
-        p.latest_scan = p.scans[0];
-      }
-      projectMap.set(p.id, p);
-    }
     for (const p of localProjects) {
       if (!p.latest_scan && p.scans && p.scans.length > 0) {
         p.latest_scan = p.scans[0];
       }
-      projectMap.set(p.id, p);
     }
-
-    return Array.from(projectMap.values()).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    return localProjects.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   },
 
   async createProject(formData: FormData): Promise<Project> {
@@ -1304,13 +1325,14 @@ export const api = {
       return await safeJson(res);
     } catch {
       const projects = await this.getProjects();
-      const allScans = projects.flatMap((p) => p.scans || (p.latest_scan ? [p.latest_scan] : []));
+      const allScans = projects.flatMap((p) => (p.scans && p.scans.length > 0 ? p.scans : (p.latest_scan ? [p.latest_scan] : [])));
       
       let critical = 0;
       let high = 0;
       let medium = 0;
       let low = 0;
       let totalVulns = 0;
+      let fixedCount = 0;
 
       for (const s of allScans) {
         critical += s.critical_count || 0;
@@ -1320,8 +1342,16 @@ export const api = {
         totalVulns += s.total_vulnerabilities || (s.critical_count + s.high_count + s.medium_count + s.low_count);
       }
 
+      // Count actual resolved vulnerabilities across local storage
+      const stored = loadStoredData();
+      for (const item of Object.values(stored)) {
+        for (const vList of Object.values(item.vulnerabilities)) {
+          fixedCount += vList.filter((v) => v.status === "resolved").length;
+        }
+      }
+
       const penalty = critical * 15 + high * 8 + medium * 3 + low * 1;
-      const score = Math.max(0, Math.min(100, Math.round(100 - penalty)));
+      const score = allScans.length > 0 ? Math.max(0, Math.min(100, Math.round(100 - penalty))) : 100;
 
       return {
         critical,
@@ -1330,9 +1360,9 @@ export const api = {
         low,
         total_scans: allScans.length,
         total_vulnerabilities: totalVulns,
-        fixed_vulnerabilities: Math.round(totalVulns * 0.35),
+        fixed_vulnerabilities: fixedCount,
         security_score: score,
-        recent_scans: allScans.slice(0, 5),
+        recent_scans: allScans.slice(0, 10),
       };
     }
   },
@@ -1514,16 +1544,18 @@ export const api = {
       return await safeJson(res);
     } catch {
       return [
-        { id: 1, username: "developer", role: "admin", created_at: new Date().toISOString() },
+        { id: 1, username: "admin", email: "admin@aibughunter.local", role: "admin", created_at: new Date().toISOString() },
+        { id: 2, username: "user", email: "user@aibughunter.local", role: "user", created_at: new Date().toISOString() },
       ];
     }
   },
 
   async updateAdminUserRole(userId: number, role: string): Promise<void> {
     try {
-      const res = await fetch(getApiUrl(`/api/admin/users/${userId}/role?role=${role}`), {
+      const res = await fetch(getApiUrl(`/api/admin/users/${userId}/role`), {
         method: "POST",
         headers: getHeaders(),
+        body: JSON.stringify({ role }),
       });
       await safeJson(res);
     } catch {
@@ -1531,18 +1563,19 @@ export const api = {
     }
   },
 
-  async createAdminUser(username: string, password: string, role: string): Promise<User> {
+  async createAdminUser(username: string, email: string, password: string, role: string): Promise<User> {
     try {
-      const res = await fetch(getApiUrl(`/api/admin/users?role=${role}`), {
+      const res = await fetch(getApiUrl("/api/admin/users"), {
         method: "POST",
         headers: getHeaders(),
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username, email, password, role }),
       });
       return await safeJson(res);
     } catch {
       return {
         id: Date.now(),
         username,
+        email,
         role,
         created_at: new Date().toISOString(),
       };
@@ -1558,6 +1591,17 @@ export const api = {
       await safeJson(res);
     } catch {
       // Local mock
+    }
+  },
+
+  async getAuditLogs(): Promise<{ events: any[] }> {
+    try {
+      const res = await fetch(getApiUrl("/api/admin/audit-logs"), {
+        headers: getHeaders(),
+      });
+      return await safeJson(res);
+    } catch {
+      return { events: [] };
     }
   }
 };

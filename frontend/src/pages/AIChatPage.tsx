@@ -48,6 +48,7 @@ export const AIChatPage: React.FC<{ initialScanId?: number | null }> = ({ initia
     gemini: false,
     claude: false,
     grok: false,
+    groq: false,
   });
 
   // API Key Quick Modal in Chat

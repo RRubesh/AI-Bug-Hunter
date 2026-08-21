@@ -50,26 +50,28 @@ def get_current_user(
     try:
         payload = jwt.decode(token_val, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         username: str = payload.get("sub")
-        role: str = payload.get("role", "admin")
+        role: str = payload.get("role", "user")
+        email: Optional[str] = payload.get("email")
         if username is None:
             raise credentials_exception
     except JWTError:
         raise credentials_exception
         
     try:
-        user = db.query(User).filter(User.username == username).first()
+        user = db.query(User).filter((User.username == username) | (User.email == username)).first()
     except Exception:
         user = None
 
     if user is None:
         # Re-create persistent user record in SQLite session for this serverless container
         try:
-            user = User(username=username, hashed_password="", role=role)
+            user_email = email or f"{username}@aibughunter.local"
+            user = User(username=username, email=user_email, hashed_password="", role=role)
             db.add(user)
             db.commit()
             db.refresh(user)
         except Exception:
-            user = User(id=1, username=username, hashed_password="", role=role)
+            user = User(id=1, username=username, email=f"{username}@aibughunter.local", hashed_password="", role=role)
 
     return user
 

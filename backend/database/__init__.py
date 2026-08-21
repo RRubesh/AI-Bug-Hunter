@@ -91,6 +91,34 @@ def run_sqlite_migrations():
                 cursor.execute("ALTER TABLE projects ADD COLUMN language_detected TEXT;")
                 print("[Database Auto-Migration]: Added missing 'language_detected' column to 'projects' table.")
 
+        # 4. Check columns and roles in users table
+        cursor.execute("PRAGMA table_info(users);")
+        existing_user_cols = {row[1] for row in cursor.fetchall()}
+        if existing_user_cols:
+            if "email" not in existing_user_cols:
+                cursor.execute("ALTER TABLE users ADD COLUMN email TEXT;")
+                cursor.execute("UPDATE users SET email = username || '@aibughunter.local' WHERE email IS NULL OR email = '';")
+                print("[Database Auto-Migration]: Added missing 'email' column and populated defaults in 'users' table.")
+            else:
+                cursor.execute("UPDATE users SET email = username || '@aibughunter.local' WHERE email IS NULL OR email = '';")
+
+            # Migrate any legacy 'developer' or 'paid' roles to 'user'
+            cursor.execute("UPDATE users SET role = 'user' WHERE role IS NULL OR role NOT IN ('admin', 'user');")
+
+        # 5. Ensure password_reset_tokens table exists
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS password_reset_tokens (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                token_hash TEXT NOT NULL,
+                expires_at DATETIME NOT NULL,
+                used BOOLEAN DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+            );
+        """)
+        cursor.execute("CREATE INDEX IF NOT EXISTS ix_password_reset_tokens_token_hash ON password_reset_tokens(token_hash);")
+
         conn.commit()
         conn.close()
     except Exception as e:

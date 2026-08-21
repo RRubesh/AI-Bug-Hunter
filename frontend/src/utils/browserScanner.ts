@@ -23,7 +23,7 @@ export function getDefaultSeedProjects(): Record<number, StoredProjectData> {
     file_path: "Local Services Finder (for Tamil Nadu)/frontend/public/assets/js/script.js",
     language_detected: "JavaScript",
     owner_id: 1,
-    owner_username: "developer",
+    owner_username: "user",
     created_at: "2026-08-16T15:16:20.000Z",
     updated_at: "2026-08-16T15:16:20.000Z",
   };
@@ -90,7 +90,7 @@ export function getDefaultSeedProjects(): Record<number, StoredProjectData> {
     file_path: "backend/database/queries.py",
     language_detected: "Python",
     owner_id: 1,
-    owner_username: "developer",
+    owner_username: "user",
     created_at: "2026-08-16T14:40:10.000Z",
     updated_at: "2026-08-16T14:40:10.000Z",
   };
@@ -173,7 +173,7 @@ export function getDefaultSeedProjects(): Record<number, StoredProjectData> {
     file_path: "src/auth/jwt.ts",
     language_detected: "TypeScript",
     owner_id: 1,
-    owner_username: "developer",
+    owner_username: "user",
     created_at: "2026-08-16T13:10:00.000Z",
     updated_at: "2026-08-16T13:10:00.000Z",
   };
@@ -667,7 +667,7 @@ export async function runInBrowserScan(options: InBrowserScanOptions): Promise<{
     file_path: Object.keys(filesMap)[0] || "main.py",
     language_detected: detectedLanguage,
     owner_id: 1,
-    owner_username: "developer",
+    owner_username: "user",
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   };

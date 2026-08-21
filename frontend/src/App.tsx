@@ -27,6 +27,7 @@ export const App: React.FC = () => {
   const [activePage, setActivePage] = useState<PageType>("dashboard");
   const [activeScanId, setActiveScanId] = useState<number | null>(null);
   const [authView, setAuthView] = useState<"login" | "register" | "forgot-password">("login");
+  const [resetTokenParam, setResetTokenParam] = useState<string | undefined>(undefined);
   
   // Shell UI states
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -34,6 +35,19 @@ export const App: React.FC = () => {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const urlToken = params.get("token") || params.get("reset_token");
+      if (urlToken) {
+        setResetTokenParam(urlToken);
+        setAuthView("forgot-password");
+      }
+    } catch {
+      // Ignore
+    }
+  }, []);
 
   const handleLogout = () => {
     localStorage.clear();
@@ -89,6 +103,7 @@ export const App: React.FC = () => {
     } else {
       return (
         <ForgotPassword
+          initialToken={resetTokenParam}
           onCancel={() => setAuthView("login")}
           onResetSuccess={() => setAuthView("login")}
         />

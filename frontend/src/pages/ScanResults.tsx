@@ -93,6 +93,18 @@ export const ScanResults: React.FC<ScanResultsProps> = ({ scanId, onNavigateToDa
     }
   };
 
+  const handleStatusChange = async (vulnId: number, newStatus: string) => {
+    try {
+      await api.updateVulnerabilityStatus(vulnId, newStatus);
+      setVulnerabilities(vulnerabilities.map((v) => (v.id === vulnId ? { ...v, status: newStatus } : v)));
+      if (selectedVuln?.id === vulnId) {
+        setSelectedVuln({ ...selectedVuln, status: newStatus });
+      }
+    } catch (err: unknown) {
+      console.error("Failed to update status:", err);
+    }
+  };
+
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     setCopiedFix(true);
@@ -833,16 +845,31 @@ export const ScanResults: React.FC<ScanResultsProps> = ({ scanId, onNavigateToDa
                 Finding #VULN-{selectedVuln.id}
               </span>
               <h2 className="text-xl font-black text-slate-100">{selectedVuln.category}</h2>
-              <div className="flex flex-wrap items-center gap-2 pt-2">
-                <span className="px-2.5 py-1 bg-rose-500/10 text-rose-400 border border-rose-500/30 rounded-lg text-xs font-mono font-bold">
-                  Severity: {selectedVuln.severity}
-                </span>
-                <span className="px-2.5 py-1 bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 rounded-lg text-xs font-mono font-bold">
-                  Confidence: HIGH
-                </span>
-                <span className="px-2.5 py-1 bg-slate-800 text-slate-300 border border-slate-700 rounded-lg text-xs font-mono font-bold">
-                  Engine: {selectedVuln.tool_name}
-                </span>
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="px-2.5 py-1 bg-rose-500/10 text-rose-400 border border-rose-500/30 rounded-lg text-xs font-mono font-bold">
+                    Severity: {selectedVuln.severity}
+                  </span>
+                  <span className="px-2.5 py-1 bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 rounded-lg text-xs font-mono font-bold">
+                    Confidence: HIGH
+                  </span>
+                  <span className="px-2.5 py-1 bg-slate-800 text-slate-300 border border-slate-700 rounded-lg text-xs font-mono font-bold">
+                    Engine: {selectedVuln.tool_name}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-400 font-mono font-bold">Status:</span>
+                  <select
+                    value={selectedVuln.status || "open"}
+                    onChange={(e) => handleStatusChange(selectedVuln.id, e.target.value)}
+                    className="bg-slate-900 border border-slate-700 text-xs text-slate-200 font-mono rounded-lg px-2.5 py-1 focus:border-cyan-500 outline-none cursor-pointer"
+                  >
+                    <option value="open">⚠️ Open</option>
+                    <option value="resolved">✅ Resolved</option>
+                    <option value="ignored">⏸️ Ignored</option>
+                    <option value="false_positive">🛡️ False Positive</option>
+                  </select>
+                </div>
               </div>
             </div>
 

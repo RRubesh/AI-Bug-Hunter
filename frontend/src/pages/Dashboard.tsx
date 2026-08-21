@@ -49,11 +49,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     ])
       .then(([summaryData, statsData, projectsData]) => {
         if (!active) return;
-        let projs = Array.isArray(projectsData) ? projectsData : [];
-        if (projs.length === 0) {
-          const seeds = loadStoredData();
-          projs = Object.values(seeds).map((s) => s.project);
-        }
+        const projs = Array.isArray(projectsData) ? projectsData : [];
         setSummary(summaryData);
         setStats(statsData);
         setProjects(projs);
@@ -62,9 +58,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         if (!active) return;
         const errMsg = err instanceof Error ? err.message : "Failed to load dashboard data.";
         setError(errMsg);
-        const seeds = loadStoredData();
-        const projs = Object.values(seeds).map((s) => s.project);
-        setProjects(projs);
+        setProjects([]);
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -130,7 +124,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   // Calculate Security Score (0 to 100)
   const penalty = totalCritical * 15 + totalHigh * 8 + totalMedium * 3 + totalLow * 1;
   const securityScore = totalScans > 0 ? Math.max(0, Math.min(100, Math.round(100 - penalty))) : (summary?.security_score ?? 100);
-  const fixedCount = summary?.fixed_vulnerabilities ?? Math.max(0, Math.round(totalVulns * 0.42));
+  const fixedCount = summary?.fixed_vulnerabilities ?? 0;
 
   // Filtered projects
   const filteredProjects = projects.filter((project) => {

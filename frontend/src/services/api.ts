@@ -234,14 +234,17 @@ export const api = {
       const res = await fetch(getApiUrl("/api/auth/forgot-password"), {
         method: "POST",
         headers: getHeaders(),
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email: email.trim().toLowerCase() }),
       });
       return await safeJson(res);
     } catch (err: unknown) {
-      if (err instanceof Error && err.message !== "HTML_FALLBACK_TRIGGERED" && !err.message.includes("Failed to fetch")) {
+      if (err instanceof Error) {
+        if (err.message === "HTML_FALLBACK_TRIGGERED" || err.message.includes("Failed to fetch") || err.message.includes("NetworkError")) {
+          throw new Error("Unable to contact the authentication service. Please check your connection and try again.");
+        }
         throw err;
       }
-      return { message: "If an account exists for this email, a password reset link has been sent." };
+      throw new Error("An unexpected error occurred while processing your request.");
     }
   },
 
@@ -250,14 +253,21 @@ export const api = {
       const res = await fetch(getApiUrl("/api/auth/reset-password"), {
         method: "POST",
         headers: getHeaders(),
-        body: JSON.stringify({ token, new_password: newPassword }),
+        body: JSON.stringify({ 
+          token: token.trim(), 
+          new_password: newPassword,
+          password: newPassword 
+        }),
       });
       return await safeJson(res);
     } catch (err: unknown) {
-      if (err instanceof Error && err.message !== "HTML_FALLBACK_TRIGGERED" && !err.message.includes("Failed to fetch")) {
+      if (err instanceof Error) {
+        if (err.message === "HTML_FALLBACK_TRIGGERED" || err.message.includes("Failed to fetch") || err.message.includes("NetworkError")) {
+          throw new Error("Unable to contact the authentication service. Please check your connection and try again.");
+        }
         throw err;
       }
-      return { message: "Password reset completed successfully." };
+      throw new Error("An unexpected error occurred while resetting your password.");
     }
   },
 

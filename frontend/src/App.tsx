@@ -38,10 +38,13 @@ export const App: React.FC = () => {
 
   useEffect(() => {
     try {
+      const pathname = window.location.pathname.toLowerCase();
       const params = new URLSearchParams(window.location.search);
       const urlToken = params.get("token") || params.get("reset_token");
-      if (urlToken) {
-        setResetTokenParam(urlToken);
+      if (urlToken || pathname.includes("reset-password") || pathname.includes("forgot-password")) {
+        if (urlToken) {
+          setResetTokenParam(urlToken);
+        }
         setAuthView("forgot-password");
       }
     } catch {

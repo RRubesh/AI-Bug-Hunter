@@ -39,7 +39,12 @@ class ForgotPasswordRequest(BaseModel):
 
 class ResetPasswordRequest(BaseModel):
     token: str
-    new_password: str
+    new_password: Optional[str] = None
+    password: Optional[str] = None
+
+    @property
+    def clean_password(self) -> str:
+        return (self.new_password or self.password or "").strip()
 
 class AdminUserCreate(BaseModel):
     username: str

@@ -37,6 +37,24 @@ class Settings(BaseSettings):
     CLAUDE_API_KEY: str = os.getenv("CLAUDE_API_KEY", "")
     GROK_API_KEY: str = os.getenv("GROK_API_KEY", "")
 
+    # Frontend & Application URL
+    FRONTEND_URL: str = os.getenv("FRONTEND_URL", os.getenv("APP_URL", "https://ai-bug-hunter-tawny.vercel.app")).rstrip("/")
+
+    # Email & SMTP Delivery Configuration
+    EMAIL_PROVIDER: str = os.getenv("EMAIL_PROVIDER", "smtp")
+    SMTP_HOST: str = os.getenv("SMTP_HOST", os.getenv("EMAIL_HOST", ""))
+    SMTP_PORT: int = int(os.getenv("SMTP_PORT", os.getenv("EMAIL_PORT", "587")))
+    SMTP_USER: str = os.getenv("SMTP_USER", os.getenv("EMAIL_USER", ""))
+    SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD", os.getenv("EMAIL_PASSWORD", os.getenv("SMTP_PASS", "")))
+    SMTP_FROM_EMAIL: str = os.getenv("SMTP_FROM_EMAIL", os.getenv("EMAIL_FROM", "security@aibughunter.com"))
+    SMTP_FROM_NAME: str = os.getenv("SMTP_FROM_NAME", "AI Bug Hunter Security")
+    SMTP_USE_TLS: bool = os.getenv("SMTP_USE_TLS", "true").lower() in ("true", "1", "yes")
+    SMTP_USE_SSL: bool = os.getenv("SMTP_USE_SSL", "false").lower() in ("true", "1", "yes")
+
+    # Cloud Email API Keys (Optional fallbacks)
+    RESEND_API_KEY: str = os.getenv("RESEND_API_KEY", "")
+    SENDGRID_API_KEY: str = os.getenv("SENDGRID_API_KEY", "")
+
     # Legacy compatibility
     OLLAMA_API_URL: str = os.getenv("OPENROUTER_API_BASE_URL", "https://openrouter.ai/api/v1")
 

@@ -312,10 +312,10 @@ def test_forgot_password_and_crypto_reset_token(db_session):
             })
             assert bad_res.status_code == 400
 
-            # Valid token attempt
+            # Valid token attempt with 'password' field name
             good_res = client.post("/api/auth/reset-password", json={
                 "token": dev_token,
-                "new_password": "NewSecurePassword789!"
+                "password": "NewSecurePassword789!"
             })
             assert good_res.status_code == 200
             assert "successfully" in good_res.json()["message"]
@@ -327,7 +327,14 @@ def test_forgot_password_and_crypto_reset_token(db_session):
             })
             assert reuse_res.status_code == 400
 
-            # Login with new password
+            # Old password MUST NOT work
+            old_login_res = client.post("/api/auth/login", data={
+                "username": "recovery_user",
+                "password": "OldPassword123!"
+            })
+            assert old_login_res.status_code == 401
+
+            # New password MUST work
             login_res = client.post("/api/auth/login", data={
                 "username": "recovery_user",
                 "password": "NewSecurePassword789!"

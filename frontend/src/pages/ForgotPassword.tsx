@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { api } from "../services/api";
 import logo from "../assets/logo.jpg";
-import { Lock, Mail, Key, AlertCircle, CheckCircle2, RefreshCw, Send, ArrowLeft, Eye, EyeOff } from "lucide-react";
+import { Lock, Mail, Key, AlertCircle, CheckCircle2, RefreshCw, Send, ArrowLeft, Eye, EyeOff, Inbox } from "lucide-react";
 import { GlassCard } from "../components/ui/GlassCard";
 import { Button } from "../components/ui/Button";
 
@@ -19,6 +19,7 @@ export const ForgotPassword: React.FC<ForgotPasswordProps> = ({ onCancel, onRese
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [devToken, setDevToken] = useState<string | null>(null);
+  const [requestSent, setRequestSent] = useState(false);
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -66,7 +67,8 @@ export const ForgotPassword: React.FC<ForgotPasswordProps> = ({ onCancel, onRese
 
     try {
       const res = await api.forgotPassword(cleanEmail);
-      setSuccessMsg(res.message || "If an account exists for this email, a reset link has been sent.");
+      setRequestSent(true);
+      setSuccessMsg(res.message || "If an account exists for this email, a password reset link has been sent.");
       if (res.dev_token) {
         setDevToken(res.dev_token);
       }
@@ -104,7 +106,7 @@ export const ForgotPassword: React.FC<ForgotPasswordProps> = ({ onCancel, onRese
 
     try {
       const res = await api.resetPassword(cleanToken, newPassword);
-      setSuccessMsg(res.message || "Password reset successfully!");
+      setSuccessMsg(res.message || "Password reset completed successfully!");
       setTimeout(() => {
         onResetSuccess();
       }, 1600);
@@ -152,22 +154,38 @@ export const ForgotPassword: React.FC<ForgotPasswordProps> = ({ onCancel, onRese
           </div>
 
           {error && (
-            <div className="mb-5 p-3 bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs rounded-xl flex items-center gap-2.5">
+            <div className="mb-5 p-3.5 bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs rounded-xl flex items-center gap-2.5 animate-fadeIn">
               <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
-              <span>{error}</span>
+              <span className="leading-relaxed">{error}</span>
             </div>
           )}
 
-          {successMsg && (
-            <div className="mb-5 p-3 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs rounded-xl flex flex-col gap-2">
-              <div className="flex items-center gap-2.5">
-                <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
-                <span>{successMsg}</span>
+          {/* Request Sent Confirmation State */}
+          {step === "request" && requestSent && successMsg && (
+            <div className="mb-5 p-5 bg-cyan-950/40 border border-cyan-500/30 text-slate-200 text-xs rounded-xl flex flex-col gap-3.5 animate-fadeIn">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center shrink-0">
+                  <Inbox className="w-4 h-4 text-cyan-400" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white font-sans">Check Your Email</h3>
+                  <p className="text-[11px] text-cyan-300 font-mono">Authorization Link Dispatched</p>
+                </div>
               </div>
+
+              <p className="text-xs text-slate-300 leading-relaxed">
+                {successMsg}
+              </p>
+
+              <div className="text-[11px] text-slate-400 bg-slate-900/60 p-2.5 rounded-lg border border-slate-800 space-y-1 font-mono">
+                <p>&bull; The link is single-use and expires in 15 minutes.</p>
+                <p>&bull; Be sure to check your spam/junk folder if needed.</p>
+              </div>
+
               {devToken && (
-                <div className="mt-1 pt-2 border-t border-emerald-500/20 text-[11px] font-mono text-slate-300">
-                  <span className="text-emerald-300 font-bold block mb-1">Generated Reset Token:</span>
-                  <div className="bg-slate-900/80 p-2 rounded border border-emerald-500/30 break-all select-all text-emerald-400">
+                <div className="pt-2 border-t border-cyan-500/20 text-[11px] font-mono text-slate-300">
+                  <span className="text-cyan-300 font-bold block mb-1">Development Reset Token:</span>
+                  <div className="bg-slate-900/90 p-2 rounded border border-cyan-500/30 break-all select-all text-cyan-400 text-[10px]">
                     {devToken}
                   </div>
                   <button
@@ -176,16 +194,57 @@ export const ForgotPassword: React.FC<ForgotPasswordProps> = ({ onCancel, onRese
                       setToken(devToken);
                       setStep("reset");
                     }}
-                    className="mt-2 text-cyan-400 hover:underline font-sans cursor-pointer font-semibold block"
+                    className="mt-2 text-cyan-400 hover:underline font-sans cursor-pointer font-semibold block text-xs"
                   >
                     Proceed with this token &rarr;
                   </button>
                 </div>
               )}
+
+              <div className="pt-2 flex flex-col gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="md"
+                  onClick={() => {
+                    setError("");
+                    setSuccessMsg("");
+                    setStep("reset");
+                  }}
+                  className="w-full justify-center text-xs font-mono"
+                  icon={Key}
+                >
+                  Enter Reset Token
+                </Button>
+                
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRequestSent(false);
+                    setError("");
+                    setSuccessMsg("");
+                  }}
+                  className="text-xs text-slate-400 hover:text-cyan-400 transition-colors font-mono cursor-pointer py-1 text-center"
+                >
+                  Need another link? Try again
+                </button>
+              </div>
             </div>
           )}
 
-          {step === "request" ? (
+          {/* Reset Step Success Message */}
+          {step === "reset" && successMsg && (
+            <div className="mb-5 p-4 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs rounded-xl flex items-center gap-3 animate-fadeIn">
+              <CheckCircle2 className="w-5 h-5 shrink-0 text-emerald-400" />
+              <div>
+                <p className="font-bold text-sm text-white">Password Reset Successful!</p>
+                <p className="text-emerald-300 mt-0.5">{successMsg}</p>
+                <p className="text-[10px] text-slate-400 font-mono mt-1">Redirecting to login...</p>
+              </div>
+            </div>
+          )}
+
+          {step === "request" && !requestSent ? (
             <form onSubmit={handleRequestSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5 font-mono">
@@ -203,7 +262,7 @@ export const ForgotPassword: React.FC<ForgotPasswordProps> = ({ onCancel, onRese
                   />
                 </div>
                 <p className="text-[11px] text-slate-500 mt-1.5 leading-relaxed">
-                  Enter your registered email. We will send a secure single-use link to reset your credentials.
+                  Enter your registered email. We will dispatch a secure single-use recovery link.
                 </p>
               </div>
 
@@ -232,11 +291,11 @@ export const ForgotPassword: React.FC<ForgotPasswordProps> = ({ onCancel, onRese
                 </button>
               </div>
             </form>
-          ) : (
+          ) : step === "reset" ? (
             <form onSubmit={handleResetSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5 font-mono">
-                  Reset Token
+                  Reset Authorization Token
                 </label>
                 <div className="relative">
                   <Key className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5 pointer-events-none" />
@@ -245,7 +304,7 @@ export const ForgotPassword: React.FC<ForgotPasswordProps> = ({ onCancel, onRese
                     value={token}
                     onChange={(e) => setToken(e.target.value)}
                     className="w-full pl-10 pr-4 py-2.5 glass-input rounded-xl text-sm focus:outline-none placeholder-slate-600 font-mono"
-                    placeholder="Paste reset token from email"
+                    placeholder="Paste 32-char reset token from email"
                     required
                   />
                 </div>
@@ -323,6 +382,7 @@ export const ForgotPassword: React.FC<ForgotPasswordProps> = ({ onCancel, onRese
                   onClick={() => {
                     setError("");
                     setSuccessMsg("");
+                    setRequestSent(false);
                     setStep("request");
                   }}
                   className="text-xs text-slate-400 hover:text-cyan-400 transition-colors font-mono cursor-pointer"
@@ -331,7 +391,7 @@ export const ForgotPassword: React.FC<ForgotPasswordProps> = ({ onCancel, onRese
                 </button>
               </div>
             </form>
-          )}
+          ) : null}
 
           <div className="mt-6 pt-4 border-t border-slate-800/80 text-center">
             <button

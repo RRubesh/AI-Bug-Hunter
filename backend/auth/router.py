@@ -15,6 +15,7 @@ from backend.schemas import (
     ForgotPasswordRequest, ResetPasswordRequest
 )
 from backend.auth.jwt import get_password_hash, verify_password, create_access_token, get_current_user
+from backend.services.email_service import send_password_reset_email
 from backend.config import settings
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -293,9 +294,19 @@ def forgot_password(req: ForgotPasswordRequest, request: Request, db: Session = 
                 ip_address=ip,
                 user_agent=request.headers.get("user-agent")
             )
-            print(f"[Security Log / Dev Reset Link]: Reset token generated for {clean_email}: {raw_token}")
+            
+            # Dispatch secure reset authorization email
+            try:
+                send_password_reset_email(
+                    to_email=clean_email,
+                    username=user.username,
+                    raw_token=raw_token,
+                    request_host=request.headers.get("host")
+                )
+            except Exception as email_err:
+                print(f"[Email Dispatch Warning]: {email_err}")
 
-    # Always return a generic response to prevent account enumeration
+    # Always return a uniform generic response to prevent account enumeration
     response_data = {
         "message": "If an account exists for this email, a password reset link has been sent.",
         "status": "success"
@@ -317,7 +328,14 @@ def reset_password(req: ResetPasswordRequest, request: Request, db: Session = De
             detail="Reset token is required."
         )
 
-    validate_password_strength(req.new_password)
+    target_password = req.clean_password
+    if not target_password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="New password is required."
+        )
+
+    validate_password_strength(target_password)
 
     token_hash = hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
     now = utcnow()
@@ -341,7 +359,7 @@ def reset_password(req: ResetPasswordRequest, request: Request, db: Session = De
         )
 
     # Hash new password and update user
-    new_hashed_password = get_password_hash(req.new_password)
+    new_hashed_password = get_password_hash(target_password)
     user.hashed_password = new_hashed_password
     reset_record.used = True
     db.commit()

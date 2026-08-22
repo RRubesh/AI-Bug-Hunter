@@ -30,7 +30,9 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from backend.config import settings
-from backend.database import engine, Base, is_mongo_connected
+from backend.database import engine, Base, SessionLocal, is_mongo_connected
+from backend.models import User
+from backend.auth.jwt import get_password_hash, verify_password
 from backend.auth.router import router as auth_router
 from backend.api.router import router as api_router
 from backend.ai.router import router as ai_router

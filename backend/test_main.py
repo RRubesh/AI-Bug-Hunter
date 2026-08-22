@@ -473,14 +473,23 @@ def test_admin_user_management_and_rbac(db_session):
         assert res.status_code == 201
         created_user_id = res.json()["id"]
 
-        # 4. Admin rejects deprecated "developer" role
+        # 4. Admin rejects invalid role
         res = client.post(
             "/api/admin/users",
-            json={"username": "bad_role_user", "email": "badrole@corp.com", "password": "Pass12345!", "role": "developer"},
+            json={"username": "bad_role_user", "email": "badrole@corp.com", "password": "Pass12345!", "role": "invalid_role"},
             headers={"Authorization": f"Bearer {admin_token}"}
         )
         assert res.status_code == 400
         assert "allowed roles" in res.json()["detail"].lower()
+
+        # 4b. Admin creates user with valid role "developer"
+        res = client.post(
+            "/api/admin/users",
+            json={"username": "dev_user", "email": "dev_user@corp.com", "password": "Pass12345!", "role": "developer"},
+            headers={"Authorization": f"Bearer {admin_token}"}
+        )
+        assert res.status_code == 201
+        assert res.json()["role"] == "developer"
 
         # 5. Admin promotes user to admin
         res = client.post(

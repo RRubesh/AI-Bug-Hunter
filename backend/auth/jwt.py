@@ -66,12 +66,25 @@ def get_current_user(
         # Re-create persistent user record in SQLite session for this serverless container
         try:
             user_email = email or f"{username}@aibughunter.local"
-            user = User(username=username, email=user_email, hashed_password="", role=role)
+            user = User(username=username, email=user_email, hashed_password="", role=role, is_active=True)
             db.add(user)
             db.commit()
             db.refresh(user)
         except Exception:
-            user = User(id=1, username=username, email=f"{username}@aibughunter.local", hashed_password="", role=role)
+            user = User(id=1, username=username, email=f"{username}@aibughunter.local", hashed_password="", role=role, is_active=True)
+    else:
+        if role and role != user.role:
+            try:
+                user.role = role
+                db.commit()
+            except Exception:
+                pass
+
+    if not getattr(user, "is_active", True):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User account is deactivated."
+        )
 
     return user
 
@@ -80,6 +93,15 @@ def get_current_admin(current_user: User = Depends(get_current_user)) -> User:
     if current_user.role != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="The user does not have enough privileges",
+            detail="Administrator privileges required",
         )
     return current_user
+
+def get_current_developer(current_user: User = Depends(get_current_user)) -> User:
+    if current_user.role not in ("developer", "admin"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Developer or Administrator privileges required",
+        )
+    return current_user
+

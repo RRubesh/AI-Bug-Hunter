@@ -102,8 +102,17 @@ def run_sqlite_migrations():
             else:
                 cursor.execute("UPDATE users SET email = username || '@aibughunter.local' WHERE email IS NULL OR email = '';")
 
-            # Migrate any legacy 'developer' or 'paid' roles to 'user'
-            cursor.execute("UPDATE users SET role = 'user' WHERE role IS NULL OR role NOT IN ('admin', 'user');")
+            if "is_active" not in existing_user_cols:
+                cursor.execute("ALTER TABLE users ADD COLUMN is_active BOOLEAN DEFAULT 1;")
+                cursor.execute("UPDATE users SET is_active = 1 WHERE is_active IS NULL;")
+                print("[Database Auto-Migration]: Added missing 'is_active' column to 'users' table.")
+
+            if "updated_at" not in existing_user_cols:
+                cursor.execute("ALTER TABLE users ADD COLUMN updated_at DATETIME;")
+                print("[Database Auto-Migration]: Added missing 'updated_at' column to 'users' table.")
+
+            # Migrate any legacy 'paid' or invalid roles to 'user'
+            cursor.execute("UPDATE users SET role = 'user' WHERE role IS NULL OR role NOT IN ('admin', 'developer', 'user');")
 
         # 5. Ensure password_reset_tokens table exists
         cursor.execute("""

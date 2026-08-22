@@ -13,11 +13,17 @@ class User(Base):
     username = Column(String, unique=True, index=True, nullable=False)
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
-    role = Column(String, default="user")  # admin, user
+    role = Column(String, default="user")  # admin, developer, user
+    is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 
     projects = relationship("Project", back_populates="owner", cascade="all, delete-orphan")
     password_reset_tokens = relationship("PasswordResetToken", back_populates="user", cascade="all, delete-orphan")
+
+    @property
+    def name(self):
+        return self.username
 
 class PasswordResetToken(Base):
     __tablename__ = "password_reset_tokens"

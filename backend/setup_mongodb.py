@@ -77,47 +77,40 @@ def setup_mongodb(uri: str = None, db_name: str = "ai_bug_hunter", update_env: b
         collections_created = 0
 
         # Collection & Index definitions
+        # Collection & Index definitions for all 6 collections
         index_specs = {
             "users": [
-                ([("username", ASCENDING)], {"unique": True}),
-                ([("email", ASCENDING)], {})
-            ],
-            "projects": [
-                ([("user_id", ASCENDING)], {}),
-                ([("created_at", DESCENDING)], {})
+                ([("email", ASCENDING)], {"unique": True, "sparse": True}),
+                ([("username", ASCENDING)], {"unique": True, "sparse": True}),
+                ([("role", ASCENDING)], {})
             ],
             "scans": [
-                ([("project_id", ASCENDING)], {}),
                 ([("user_id", ASCENDING)], {}),
+                ([("created_at", DESCENDING)], {}),
                 ([("status", ASCENDING)], {}),
-                ([("started_at", DESCENDING)], {})
+                ([("project_name", ASCENDING)], {})
             ],
             "vulnerabilities": [
                 ([("scan_id", ASCENDING)], {}),
-                ([("project_id", ASCENDING)], {}),
+                ([("user_id", ASCENDING)], {}),
                 ([("severity", ASCENDING)], {}),
                 ([("status", ASCENDING)], {})
             ],
-            "dependencies": [
-                ([("scan_id", ASCENDING)], {}),
-                ([("project_id", ASCENDING)], {})
-            ],
-            "scanner_results": [
-                ([("scan_id", ASCENDING)], {}),
-                ([("scanner", ASCENDING)], {})
-            ],
-            "ai_analysis": [
-                ([("scan_id", ASCENDING)], {}),
-                ([("vulnerability_id", ASCENDING)], {})
-            ],
             "reports": [
                 ([("scan_id", ASCENDING)], {}),
+                ([("user_id", ASCENDING)], {}),
+                ([("created_at", DESCENDING)], {})
+            ],
+            "password_reset_tokens": [
+                ([("token_hash", ASCENDING)], {}),
+                ([("expires_at", ASCENDING)], {}),
                 ([("user_id", ASCENDING)], {})
             ],
-            "security_events": [
+            "audit_logs": [
                 ([("user_id", ASCENDING)], {}),
-                ([("event_type", ASCENDING)], {}),
-                ([("created_at", DESCENDING)], {})
+                ([("created_at", DESCENDING)], {}),
+                ([("action", ASCENDING)], {}),
+                ([("resource", ASCENDING)], {})
             ]
         }
 

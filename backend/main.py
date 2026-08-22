@@ -58,11 +58,19 @@ def startup_event():
     try:
         connected = mongo_manager.connect()
         if connected:
-            mongo_manager.log_security_event("platform_startup", "AI Bug Hunter backend started successfully.")
+            mongo_manager.log_audit_event(action="platform_startup", resource="system", details={"description": "AI Bug Hunter backend started successfully."})
         else:
             print("[Startup Notice]: Running with SQLite local storage fallback (MONGODB_URI unconfigured or unreachable).")
     except Exception as me:
         print("[MongoDB Startup Notice]:", me)
+
+@app.on_event("shutdown")
+def shutdown_event():
+    print(f"[Shutdown]: Gracefully shutting down {settings.APP_NAME}...")
+    try:
+        mongo_manager.disconnect()
+    except Exception as me:
+        print("[MongoDB Shutdown Notice]:", me)
 
 
 # CORS Configuration

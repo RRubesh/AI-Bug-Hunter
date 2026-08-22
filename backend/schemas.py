@@ -16,10 +16,28 @@ class UserLogin(BaseModel):
 
 class UserResponse(UserBase):
     id: int
+    name: Optional[str] = None
     role: str
+    is_active: Optional[bool] = True
     created_at: datetime
+    updated_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+class ReportResponse(BaseModel):
+    id: Optional[int] = None
+    scan_id: int
+    user_id: int
+    report_type: str
+    report_path: str
+    status: str = "completed"
+    created_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+class AdminStatsResponse(BaseModel):
+    totalScans: int
+    totalReports: int
 
 class Token(BaseModel):
     access_token: str

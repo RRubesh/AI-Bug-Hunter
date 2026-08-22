@@ -1613,5 +1613,28 @@ export const api = {
     } catch {
       return { events: [] };
     }
+  },
+
+  async getAdminStats(): Promise<{ totalScans: number; totalReports: number }> {
+    try {
+      const res = await fetch(getApiUrl("/api/admin/stats"), {
+        headers: getHeaders(),
+      });
+      return await safeJson(res);
+    } catch {
+      return { totalScans: 0, totalReports: 0 };
+    }
+  },
+
+  async getReports(): Promise<any[]> {
+    try {
+      const res = await fetch(getApiUrl("/api/reports"), {
+        headers: getHeaders(),
+      });
+      return await safeJson(res);
+    } catch {
+      return [];
+    }
   }
 };
+

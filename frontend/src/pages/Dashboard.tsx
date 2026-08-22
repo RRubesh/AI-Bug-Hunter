@@ -154,11 +154,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
       
       {/* Page Header */}
       <PageHeader
-        title="Security Command Center"
-        subtitle="Enterprise SAST Static Analysis & AI Vulnerability Intelligence"
+        title="My Security Overview"
+        subtitle="Personalized SAST Code Analysis & AI Vulnerability Intelligence"
         badge={
           <span className="px-3 py-1 bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 rounded-full text-xs font-mono font-bold">
-            SOC Level 3
+            USER DASHBOARD
           </span>
         }
         action={
@@ -179,7 +179,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
         {/* Critical Risks */}
         <MetricCard
-          title="Critical Risks"
+          title="My Critical Risks"
           value={totalCritical}
           description="Immediate patch required"
           icon={ShieldAlert}
@@ -188,7 +188,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
         {/* High Severity */}
         <MetricCard
-          title="High Severity"
+          title="My High Severity"
           value={totalHigh}
           description="Exploitable flaws"
           icon={ShieldX}
@@ -197,7 +197,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
         {/* Medium Severity */}
         <MetricCard
-          title="Medium Severity"
+          title="My Medium Flaws"
           value={totalMedium}
           description="Security warnings"
           icon={AlertTriangle}
@@ -206,16 +206,16 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
         {/* Total Scans */}
         <MetricCard
-          title="Total Scans"
+          title="My Total Scans"
           value={totalScans}
-          description="Projects scanned"
+          description="Personal scans"
           icon={FileCode}
           accentColor="cyan"
         />
 
         {/* Vulnerabilities Fixed */}
         <MetricCard
-          title="Fixed Flaws"
+          title="My Fixed Flaws"
           value={fixedCount}
           description="Auto-remediated"
           icon={CheckCircle2}
@@ -226,7 +226,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         <GlassCard className="p-4 flex flex-col justify-between relative overflow-hidden group">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 font-mono">
-              Security Score
+              My Security Score
             </span>
             <div className="w-7 h-7 rounded-lg bg-violet-500/10 border border-violet-500/30 flex items-center justify-center text-violet-400">
               <ShieldCheck className="w-4 h-4" />

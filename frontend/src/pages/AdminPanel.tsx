@@ -11,9 +11,10 @@ import {
 } from "lucide-react";
 
 export const AdminPanel: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<"users" | "audit">("users");
+  const [activeTab, setActiveTab] = useState<"overview" | "users" | "audit">("overview");
   const [users, setUsers] = useState<User[]>([]);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [adminStats, setAdminStats] = useState<{ totalScans: number; totalReports: number }>({ totalScans: 0, totalReports: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -42,13 +43,15 @@ export const AdminPanel: React.FC = () => {
     let active = true;
     if (userRole === "admin") {
       Promise.all([
-        api.getAdminUsers(),
-        api.getAuditLogs()
+        api.getAdminUsers().catch(() => []),
+        api.getAuditLogs().catch(() => ({ events: [] })),
+        api.getAdminStats().catch(() => ({ totalScans: 0, totalReports: 0 }))
       ])
-        .then(([usersData, logsData]) => {
+        .then(([usersData, logsData, statsData]) => {
           if (active) {
             setUsers(usersData);
             setAuditLogs(logsData?.events || []);
+            setAdminStats(statsData || { totalScans: 0, totalReports: 0 });
           }
         })
         .catch(() => {
@@ -156,11 +159,11 @@ export const AdminPanel: React.FC = () => {
       
       {/* Header */}
       <PageHeader
-        title="Administration & RBAC Management"
-        subtitle="Manage platform credentials, assign User/Admin roles, and inspect security audit logs"
+        title="Security Administration"
+        subtitle="System-level statistics, user role permissions, and platform audit logs"
         badge={
           <span className="px-3 py-1 bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 rounded-full text-xs font-mono font-bold">
-            {users.length} Active Accounts
+            ADMINISTRATOR PRIVILEGES
           </span>
         }
         action={
@@ -183,6 +186,45 @@ export const AdminPanel: React.FC = () => {
           <span>{success}</span>
         </div>
       )}
+
+      {/* System-Level Overview Metric Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <GlassCard className="p-6 relative overflow-hidden group hover:border-cyan-500/40 transition-all">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-400 font-mono">
+              TOTAL SCANS
+            </span>
+            <div className="w-8 h-8 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
+              <Shield className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-4 flex items-baseline gap-2">
+            <span className="text-4xl font-black font-mono text-slate-100">
+              {adminStats.totalScans.toLocaleString()}
+            </span>
+            <span className="text-xs text-slate-400 font-mono">scans across system</span>
+          </div>
+          <p className="text-[11px] text-slate-400 mt-2 font-mono">Real-time aggregate from MongoDB Atlas</p>
+        </GlassCard>
+
+        <GlassCard className="p-6 relative overflow-hidden group hover:border-violet-500/40 transition-all">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-400 font-mono">
+              TOTAL REPORTS
+            </span>
+            <div className="w-8 h-8 rounded-xl bg-violet-500/10 border border-violet-500/30 flex items-center justify-center text-violet-400">
+              <FileText className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-4 flex items-baseline gap-2">
+            <span className="text-4xl font-black font-mono text-slate-100">
+              {adminStats.totalReports.toLocaleString()}
+            </span>
+            <span className="text-xs text-slate-400 font-mono">generated compliance reports</span>
+          </div>
+          <p className="text-[11px] text-slate-400 mt-2 font-mono">Real-time aggregate from MongoDB Atlas</p>
+        </GlassCard>
+      </div>
 
       {/* Tabs */}
       <div className="flex items-center gap-3 border-b border-slate-800 pb-2">

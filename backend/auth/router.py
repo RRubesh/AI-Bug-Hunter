@@ -106,9 +106,9 @@ def register(user_in: UserCreate, request: Request, db: Session = Depends(get_db
             mongo_db = get_mongo_db()
             if mongo_db is not None:
                 mongo_db.users.update_one(
-                    {"username": new_user.username},
+                    {"email": new_user.email},
                     {"$set": {
-                        "user_id": new_user.id,
+                        "name": new_user.username,
                         "username": new_user.username,
                         "email": new_user.email,
                         "password_hash": hashed_password,
@@ -116,19 +116,20 @@ def register(user_in: UserCreate, request: Request, db: Session = Depends(get_db
                         "is_active": True,
                         "created_at": new_user.created_at or now,
                         "updated_at": now,
-                        "last_login": None
+                        "user_id": new_user.id
                     }},
                     upsert=True
                 )
     except Exception:
         pass
 
-    mongo_manager.log_security_event(
-        event_type="user_registered",
-        description=f"New user registered: {new_user.username} ({new_user.email}) - Role: {new_user.role}",
+    mongo_manager.log_audit_event(
+        action="user_registered",
+        resource="users",
+        resource_id=new_user.id,
         user_id=new_user.id,
         ip_address=ip,
-        user_agent=request.headers.get("user-agent")
+        details={"username": new_user.username, "email": new_user.email, "role": new_user.role}
     )
 
     return new_user

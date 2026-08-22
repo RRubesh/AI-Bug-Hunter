@@ -13,7 +13,7 @@ from backend.schemas import (
     ProjectResponse, ProjectCreate, ScanResponse, VulnerabilityResponse, 
     VulnerabilityDetail, VulnerabilityUpdate, ScanStats, SeverityStats, 
     DashboardSummary, AppSettings, UserResponse, UserCreate, SettingsUpdate,
-    AdminUserCreate, AdminRoleUpdate, SecurityEventResponse
+    AdminUserCreate, AdminRoleUpdate, SecurityEventResponse, ReportResponse, AdminStatsResponse
 )
 from backend.auth.jwt import get_current_user, get_current_admin, get_password_hash
 from backend.config import settings
@@ -662,6 +662,8 @@ def download_report(scan_id: int, report_format: str, current_user: User = Depen
         }
         proj_name = project.name if project else "Project"
         filename = f"AI_Bug_Hunter_Report_{proj_name}_{scan_id}.json"
+        mongo_manager.record_report(scan_id=scan_id, user_id=current_user.id, report_type="json", report_path=filename)
+        mongo_manager.log_audit_event(action="report_downloaded", resource="reports", resource_id=scan_id, user_id=current_user.id, details={"format": "json"})
         return JSONResponse(
             content=data,
             headers={"Content-Disposition": f'attachment; filename="{filename}"'}
@@ -672,20 +674,26 @@ def download_report(scan_id: int, report_format: str, current_user: User = Depen
         # Regenerate report on-demand to include any updated AI explanations
         generate_pdf_report(scan, project, vulnerabilities, pdf_path)
         proj_name = project.name if project else "Project"
+        filename = f"AI_Bug_Hunter_Report_{proj_name}_{scan_id}.pdf"
+        mongo_manager.record_report(scan_id=scan_id, user_id=current_user.id, report_type="pdf", report_path=str(pdf_path))
+        mongo_manager.log_audit_event(action="report_downloaded", resource="reports", resource_id=scan_id, user_id=current_user.id, details={"format": "pdf"})
         return FileResponse(
             str(pdf_path),
             media_type="application/pdf",
-            filename=f"AI_Bug_Hunter_Report_{proj_name}_{scan_id}.pdf"
+            filename=filename
         )
 
     elif report_format == "html":
         html_path = settings.REPORT_DIR / f"report_{scan_id}.html"
         generate_html_report(scan, project, vulnerabilities, html_path)
         proj_name = project.name if project else "Project"
+        filename = f"AI_Bug_Hunter_Report_{proj_name}_{scan_id}.html"
+        mongo_manager.record_report(scan_id=scan_id, user_id=current_user.id, report_type="html", report_path=str(html_path))
+        mongo_manager.log_audit_event(action="report_downloaded", resource="reports", resource_id=scan_id, user_id=current_user.id, details={"format": "html"})
         return FileResponse(
             str(html_path),
             media_type="text/html",
-            filename=f"AI_Bug_Hunter_Report_{proj_name}_{scan_id}.html"
+            filename=filename
         )
 
     elif report_format == "csv":
@@ -711,6 +719,8 @@ def download_report(scan_id: int, report_format: str, current_user: User = Depen
             ])
         proj_name = project.name if project else "Project"
         filename = f"AI_Bug_Hunter_Report_{proj_name}_{scan_id}.csv"
+        mongo_manager.record_report(scan_id=scan_id, user_id=current_user.id, report_type="csv", report_path=filename)
+        mongo_manager.log_audit_event(action="report_downloaded", resource="reports", resource_id=scan_id, user_id=current_user.id, details={"format": "csv"})
         return Response(
             content=output.getvalue(),
             media_type="text/csv",
@@ -719,6 +729,86 @@ def download_report(scan_id: int, report_format: str, current_user: User = Depen
 
     else:
         raise HTTPException(status_code=400, detail="Invalid report format. Must be json, pdf, html, or csv")
+
+@router.get("/reports", response_model=List[ReportResponse])
+def list_reports(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    reports_list = []
+    try:
+        if is_mongo_connected():
+            mongo_db = get_mongo_db()
+            if mongo_db is not None:
+                query = {} if current_user.role == "admin" else {"user_id": current_user.id}
+                cursor = mongo_db.reports.find(query).sort("created_at", -1)
+                for doc in cursor:
+                    reports_list.append(ReportResponse(
+                        id=doc.get("_id") if isinstance(doc.get("_id"), int) else 0,
+                        scan_id=doc.get("scan_id", 0),
+                        user_id=doc.get("user_id", 0),
+                        report_type=doc.get("report_type", "pdf"),
+                        report_path=doc.get("report_path", ""),
+                        status=doc.get("status", "completed"),
+                        created_at=doc.get("created_at")
+                    ))
+                if reports_list:
+                    return reports_list
+    except Exception:
+        pass
+
+    # Fallback to local scans for this user
+    user_projects = db.query(Project).all() if current_user.role == "admin" else db.query(Project).filter(Project.owner_id == current_user.id).all()
+    project_ids = [p.id for p in user_projects]
+    user_scans = db.query(Scan).filter(Scan.project_id.in_(project_ids), Scan.status == "completed").all() if project_ids else []
+    for s in user_scans:
+        reports_list.append(ReportResponse(
+            id=s.id,
+            scan_id=s.id,
+            user_id=current_user.id,
+            report_type="pdf",
+            report_path=f"report_{s.id}.pdf",
+            status="completed",
+            created_at=s.created_at
+        ))
+    return reports_list
+
+@router.get("/reports/{report_id}")
+def get_report_detail(report_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    try:
+        if is_mongo_connected():
+            mongo_db = get_mongo_db()
+            if mongo_db is not None:
+                doc = mongo_db.reports.find_one({"$or": [{"_id": report_id}, {"scan_id": report_id}]})
+                if doc:
+                    if doc.get("user_id") != current_user.id and current_user.role != "admin":
+                        raise HTTPException(status_code=403, detail="Not authorized to access this report")
+                    return {
+                        "id": doc.get("_id"),
+                        "scan_id": doc.get("scan_id"),
+                        "user_id": doc.get("user_id"),
+                        "report_type": doc.get("report_type"),
+                        "report_path": doc.get("report_path"),
+                        "status": doc.get("status"),
+                        "created_at": doc.get("created_at")
+                    }
+    except HTTPException:
+        raise
+    except Exception:
+        pass
+
+    # Fallback check scan
+    scan = db.query(Scan).filter(Scan.id == report_id).first()
+    if not scan:
+        raise HTTPException(status_code=404, detail="Report not found")
+    if scan.project and scan.project.owner_id != current_user.id and current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized to access this report")
+    return {
+        "id": scan.id,
+        "scan_id": scan.id,
+        "user_id": current_user.id,
+        "report_type": "pdf",
+        "report_path": f"report_{scan.id}.pdf",
+        "status": "completed",
+        "created_at": scan.created_at
+    }
 
 
 # --- DASHBOARD & STATISTICS ---
@@ -1003,10 +1093,10 @@ def admin_update_role(
     db: Session = Depends(get_db)
 ):
     clean_role = (role_in.role or "").strip().lower()
-    if clean_role not in ("admin", "user"):
+    if clean_role not in ("admin", "developer", "user"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, 
-            detail="Invalid role type. Allowed roles are 'user' and 'admin'."
+            detail="Invalid role type. Allowed roles are 'user', 'developer', and 'admin'."
         )
         
     user = db.query(User).filter(User.id == user_id).first()
@@ -1020,20 +1110,23 @@ def admin_update_role(
         
     old_role = user.role
     user.role = clean_role
+    user.updated_at = utcnow()
     db.commit()
 
     try:
         if is_mongo_connected():
             mongo_db = get_mongo_db()
             if mongo_db is not None:
-                mongo_db.users.update_one({"username": user.username}, {"$set": {"role": clean_role}})
+                mongo_db.users.update_one({"email": user.email}, {"$set": {"role": clean_role, "updated_at": utcnow()}})
     except Exception:
         pass
 
-    mongo_manager.log_security_event(
-        event_type="admin_role_changed",
-        description=f"Admin {current_admin.username} updated role of user {user.username} from {old_role} to {clean_role}",
-        user_id=current_admin.id
+    mongo_manager.log_audit_event(
+        action="admin_role_changed",
+        resource="users",
+        resource_id=user.id,
+        user_id=current_admin.id,
+        details={"target_username": user.username, "old_role": old_role, "new_role": clean_role}
     )
 
     return {"message": f"User role updated to {clean_role}"}
@@ -1045,10 +1138,10 @@ def admin_create_user(
     db: Session = Depends(get_db)
 ):
     clean_role = (user_in.role or "user").strip().lower()
-    if clean_role not in ("admin", "user"):
+    if clean_role not in ("admin", "developer", "user"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, 
-            detail="Invalid role type. Allowed roles are 'user' and 'admin'."
+            detail="Invalid role type. Allowed roles are 'user', 'developer', and 'admin'."
         )
 
     clean_username = (user_in.username or "").strip()
@@ -1069,7 +1162,8 @@ def admin_create_user(
         username=clean_username,
         email=clean_email,
         hashed_password=hashed_password,
-        role=clean_role
+        role=clean_role,
+        is_active=True
     )
     db.add(new_user)
     db.commit()
@@ -1080,9 +1174,9 @@ def admin_create_user(
             mongo_db = get_mongo_db()
             if mongo_db is not None:
                 mongo_db.users.update_one(
-                    {"username": new_user.username},
+                    {"email": new_user.email},
                     {"$set": {
-                        "user_id": new_user.id,
+                        "name": new_user.username,
                         "username": new_user.username,
                         "email": new_user.email,
                         "password_hash": hashed_password,
@@ -1090,17 +1184,19 @@ def admin_create_user(
                         "is_active": True,
                         "created_at": new_user.created_at or now,
                         "updated_at": now,
-                        "last_login": None
+                        "user_id": new_user.id
                     }},
                     upsert=True
                 )
     except Exception:
         pass
 
-    mongo_manager.log_security_event(
-        event_type="admin_user_created",
-        description=f"Admin {current_admin.username} created user {new_user.username} ({new_user.email}) with role {new_user.role}",
-        user_id=current_admin.id
+    mongo_manager.log_audit_event(
+        action="admin_user_created",
+        resource="users",
+        resource_id=new_user.id,
+        user_id=current_admin.id,
+        details={"created_user": new_user.username, "email": new_user.email, "role": new_user.role}
     )
 
     return new_user
@@ -1118,6 +1214,7 @@ def admin_delete_user(
         raise HTTPException(status_code=400, detail="Cannot delete your own administrator account.")
         
     deleted_username = user.username
+    deleted_email = user.email
     db.delete(user)
     db.commit()
 
@@ -1125,14 +1222,16 @@ def admin_delete_user(
         if is_mongo_connected():
             mongo_db = get_mongo_db()
             if mongo_db is not None:
-                mongo_db.users.delete_one({"username": deleted_username})
+                mongo_db.users.delete_one({"email": deleted_email})
     except Exception:
         pass
 
-    mongo_manager.log_security_event(
-        event_type="admin_user_deleted",
-        description=f"Admin {current_admin.username} deleted user account {deleted_username}",
-        user_id=current_admin.id
+    mongo_manager.log_audit_event(
+        action="admin_user_deleted",
+        resource="users",
+        resource_id=user_id,
+        user_id=current_admin.id,
+        details={"deleted_username": deleted_username}
     )
 
     return {"message": "User account deleted successfully"}
@@ -1142,6 +1241,69 @@ def admin_get_audit_logs(
     limit: int = 50,
     current_admin: User = Depends(get_current_admin)
 ):
-    events = mongo_manager.get_security_events(limit=min(limit, 100))
+    events = mongo_manager.get_audit_logs(limit=min(limit, 100))
     return {"events": events}
+
+# --- ADMIN SYSTEM STATISTICS (TOTAL SCANS & TOTAL REPORTS) ---
+
+@router.get("/admin/stats", response_model=AdminStatsResponse)
+@router.get("/admin/dashboard-stats", response_model=AdminStatsResponse)
+def admin_get_dashboard_stats(
+    current_admin: User = Depends(get_current_admin), 
+    db: Session = Depends(get_db)
+):
+    total_scans = 0
+    total_reports = 0
+
+    try:
+        if is_mongo_connected():
+            mongo_db = get_mongo_db()
+            if mongo_db is not None:
+                total_scans = mongo_db.scans.count_documents({})
+                total_reports = mongo_db.reports.count_documents({})
+    except Exception:
+        pass
+
+    if total_scans == 0:
+        total_scans = db.query(Scan).count()
+    if total_reports == 0:
+        try:
+            report_dir = settings.REPORT_DIR
+            if report_dir.exists():
+                total_reports = len([f for f in report_dir.iterdir() if f.is_file() and f.suffix in ('.pdf', '.html', '.json', '.csv')])
+            else:
+                total_reports = 0
+        except Exception:
+            total_reports = 0
+
+    return {
+        "totalScans": total_scans,
+        "totalReports": total_reports
+    }
+
+# --- USER PROFILE PRIVACY & RESTRICTION ---
+
+@router.get("/users/me", response_model=UserResponse)
+def get_user_me(current_user: User = Depends(get_current_user)):
+    return current_user
+
+@router.get("/users/{user_id}", response_model=UserResponse)
+def get_user_by_id(user_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if user_id == current_user.id:
+        return current_user
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to access another user's profile details"
+        )
+    target_user = db.query(User).filter(User.id == user_id).first()
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User account not found")
+    if target_user.role == "admin" and target_user.id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access to another administrator's private profile is restricted. Use /api/admin/users for user management."
+        )
+    return target_user
+
 

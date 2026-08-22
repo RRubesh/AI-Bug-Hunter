@@ -274,12 +274,15 @@ def execute_scan_task(db_session_factory, scan_id: int, project_path_str: str):
                         {"scan_id": scan.id},
                         {"$set": {
                             "scan_id": scan.id,
-                            "project_id": scan.project_id,
                             "user_id": user_id,
-                            "scan_type": scan.trigger_type,
+                            "project_name": project.name if project else "Codebase",
+                            "project_id": scan.project_id,
+                            "scan_type": scan.trigger_type or "manual",
+                            "source_type": project.upload_type if project else "file",
                             "status": scan.status,
                             "started_at": start_time,
                             "completed_at": finished_time,
+                            "security_score": security_score,
                             "duration_seconds": round(duration, 2),
                             "total_files": total_files,
                             "critical_count": scan.critical_count,
@@ -287,7 +290,7 @@ def execute_scan_task(db_session_factory, scan_id: int, project_path_str: str):
                             "medium_count": scan.medium_count,
                             "low_count": scan.low_count,
                             "total_vulnerabilities": scan.total_vulnerabilities,
-                            "security_score": security_score,
+                            "created_at": scan.created_at or start_time,
                             "error_message": None
                         }},
                         upsert=True
@@ -301,23 +304,20 @@ def execute_scan_task(db_session_factory, scan_id: int, project_path_str: str):
                             {"$set": {
                                 "vulnerability_id": v.id,
                                 "scan_id": scan.id,
-                                "project_id": scan.project_id,
                                 "user_id": user_id,
-                                "scanner": v.tool_name,
-                                "severity": v.severity.lower(),
+                                "project_id": scan.project_id,
+                                "severity": v.severity,
                                 "title": v.category,
                                 "description": v.message,
-                                "category": v.category,
-                                "cwe": "CWE-Unknown",
-                                "owasp": "OWASP Top 10",
                                 "file_path": v.file_path,
                                 "line_number": v.line_number,
-                                "code_snippet": v.code_snippet,
-                                "evidence": v.message,
+                                "category": v.category,
                                 "recommendation": v.remediation,
+                                "status": v.status or "open",
+                                "code_snippet": v.code_snippet,
+                                "scanner": v.tool_name,
                                 "ai_explanation": v.ai_explanation,
                                 "ai_fix": v.ai_fix,
-                                "status": v.status or "open",
                                 "created_at": v.created_at or finished_time
                             }},
                             upsert=True
@@ -360,11 +360,13 @@ def execute_scan_task(db_session_factory, scan_id: int, project_path_str: str):
                                 upsert=True
                             )
 
-                    # Log scan completed event
-                    mongo_manager.log_security_event(
-                        event_type="scan_completed",
-                        description=f"Scan #{scan.id} finished cleanly with {scan.total_vulnerabilities} findings. Score: {security_score}/100",
-                        user_id=user_id
+                    # Log scan completed event to audit_logs
+                    mongo_manager.log_audit_event(
+                        action="scan_completed",
+                        resource="scans",
+                        resource_id=scan.id,
+                        user_id=user_id,
+                        details={"findings": scan.total_vulnerabilities, "security_score": security_score}
                     )
 
         except Exception as mongo_err:

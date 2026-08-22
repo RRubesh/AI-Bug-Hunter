@@ -160,7 +160,7 @@ def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db
                     if m_user:
                         user = User(
                             username=m_user.get("username", identifier),
-                            email=m_user.get("email", f"{identifier_lower}@aibughunter.local"),
+                            email=m_user.get("email", identifier_lower),
                             hashed_password=m_user.get("password_hash", get_password_hash(form_data.password)),
                             role=m_user.get("role", "user"),
                             is_active=m_user.get("is_active", True)
@@ -170,23 +170,6 @@ def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db
                         db.refresh(user)
         except Exception as mongo_err:
             print(f"[MongoDB User Sync Notice]: {mongo_err}")
-
-    # Seamless fallback for primary administrator account
-    if not user and identifier_lower in ("rubesh", "rubesh@aibughunter.local") and form_data.password == "admin123":
-        try:
-            admin_user = User(
-                username="rubesh",
-                email="rubesh@aibughunter.local",
-                hashed_password=get_password_hash("admin123"),
-                role="admin",
-                is_active=True
-            )
-            db.add(admin_user)
-            db.commit()
-            db.refresh(admin_user)
-            user = admin_user
-        except Exception as seed_err:
-            print(f"[Admin Fallback Seed Notice]: {seed_err}")
 
     # If database is completely empty, auto-seed the first login attempt as Admin
     if not user:
@@ -205,12 +188,6 @@ def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db
                 user = default_user
         except Exception as seed_err:
             print(f"[Auto-Seed Admin Notice]: {seed_err}")
-
-    # Ensure rubesh / admin123 always matches
-    if user and identifier_lower in ("rubesh", "rubesh@aibughunter.local") and form_data.password == "admin123":
-        if not verify_password(form_data.password, user.hashed_password):
-            user.hashed_password = get_password_hash("admin123")
-            db.commit()
 
     if not user or not verify_password(form_data.password, user.hashed_password):
         try:

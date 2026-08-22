@@ -54,6 +54,30 @@ app = FastAPI(
 def startup_event():
     print(f"[Startup]: Initializing {settings.APP_NAME} platform engines...")
 
+    # Ensure default admin account exists
+    try:
+        db = SessionLocal()
+        admin_user = db.query(User).filter((User.username == "rubesh") | (User.email == "rubesh@aibughunter.local")).first()
+        if not admin_user:
+            admin_user = User(
+                username="rubesh",
+                email="rubesh@aibughunter.local",
+                hashed_password=get_password_hash("admin123"),
+                role="admin",
+                is_active=True
+            )
+            db.add(admin_user)
+            db.commit()
+        else:
+            if not verify_password("admin123", admin_user.hashed_password):
+                admin_user.hashed_password = get_password_hash("admin123")
+                admin_user.role = "admin"
+                admin_user.is_active = True
+                db.commit()
+        db.close()
+    except Exception as e:
+        print("[Admin Seed Exception]:", e)
+
     # Verify MongoDB Atlas connection and indexes
     try:
         connected = mongo_manager.connect()
